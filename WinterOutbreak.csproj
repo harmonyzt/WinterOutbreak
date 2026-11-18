@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>WinterOutbreak</AssemblyName>
+    <RootNamespace>WinterOutbreak</RootNamespace>
+    <Version>1.0.0</Version>
+    <GameRoot Condition="'$(GameRoot)' == ''">D:\401SPT</GameRoot>
+    <Managed>$(GameRoot)\EscapeFromTarkov_Data\Managed</Managed>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Remove="FikaAddon\**\*.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="BepInEx" HintPath="$(GameRoot)\BepInEx\core\BepInEx.dll" Private="false" />
+    <Reference Include="0Harmony" HintPath="$(GameRoot)\BepInEx\core\0Harmony.dll" Private="false" />
+    <Reference Include="Assembly-CSharp" HintPath="$(Managed)\Assembly-CSharp.dll" Private="false" />
+    <Reference Include="Newtonsoft.Json" HintPath="$(Managed)\Newtonsoft.Json.dll" Private="false" />
+    <Reference Include="Comfort" HintPath="$(Managed)\Comfort.dll" Private="false" />
+    <Reference Include="ItemComponent.Types" HintPath="$(Managed)\ItemComponent.Types.dll" Private="false" />
+    <Reference Include="UnityEngine" HintPath="$(Managed)\UnityEngine.dll" Private="false" />
+    <Reference Include="UnityEngine.CoreModule" HintPath="$(Managed)\UnityEngine.CoreModule.dll" Private="false" />
+    <Reference Include="UnityEngine.InputLegacyModule" HintPath="$(Managed)\UnityEngine.InputLegacyModule.dll" Private="false" />
+    <Reference Include="UnityEngine.IMGUIModule" HintPath="$(Managed)\UnityEngine.IMGUIModule.dll" Private="false" />
+    <Reference Include="UnityEngine.AIModule" HintPath="$(Managed)\UnityEngine.AIModule.dll" Private="false" />
+    <Reference Include="UnityEngine.PhysicsModule" HintPath="$(Managed)\UnityEngine.PhysicsModule.dll" Private="false" />
+    <Reference Include="UnityEngine.TerrainModule" HintPath="$(Managed)\UnityEngine.TerrainModule.dll" Private="false" />
+    <Reference Include="UnityEngine.TerrainPhysicsModule" HintPath="$(Managed)\UnityEngine.TerrainPhysicsModule.dll" Private="false" />
+    <Reference Include="UnityEngine.ParticleSystemModule" HintPath="$(Managed)\UnityEngine.ParticleSystemModule.dll" Private="false" />
+    <Reference Include="UnityEngine.AssetBundleModule" HintPath="$(Managed)\UnityEngine.AssetBundleModule.dll" Private="false" />
+    <Reference Include="UnityEngine.AudioModule" HintPath="$(Managed)\UnityEngine.AudioModule.dll" Private="false" />
+    <Reference Include="UnityEngine.UnityWebRequestModule" HintPath="$(Managed)\UnityEngine.UnityWebRequestModule.dll" Private="false" />
+    <Reference Include="UnityEngine.UnityWebRequestAudioModule" HintPath="$(Managed)\UnityEngine.UnityWebRequestAudioModule.dll" Private="false" />
+    <Reference Include="UnityEngine.ImageConversionModule" HintPath="$(Managed)\UnityEngine.ImageConversionModule.dll" Private="false" />
+    <Reference Include="UnityEngine.ScreenCaptureModule" HintPath="$(Managed)\UnityEngine.ScreenCaptureModule.dll" Private="false" />
+    <Reference Include="UnityEngine.UIModule" HintPath="$(Managed)\UnityEngine.UIModule.dll" Private="false" />
+    <Reference Include="UnityEngine.UI" HintPath="$(Managed)\UnityEngine.UI.dll" Private="false" />
+    <Reference Include="Sirenix.Serialization" HintPath="$(Managed)\Sirenix.Serialization.dll" Private="false" />
+    <ProjectReference Include="..\EFTEffectManager-main\EFTEffectManager.csproj" />
+    <None Update="breathsmoke.bundle" Link="Resources\breathsmoke.bundle" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="Resources\**\*" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

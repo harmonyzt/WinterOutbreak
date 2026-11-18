@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>WinterOutbreak.Fika</AssemblyName>
+    <RootNamespace>WinterOutbreak.Fika</RootNamespace>
+    <Version>1.0.0</Version>
+    <GameRoot Condition="'$(GameRoot)' == ''">C:\SPT41</GameRoot>
+    <Managed>$(GameRoot)\EscapeFromTarkov_Data\Managed</Managed>
+    <!-- Fika.Core.dll to build against. Override with -p:FikaCore=path when Fika is installed elsewhere. -->
+    <FikaCore Condition="'$(FikaCore)' == '' And Exists('$(GameRoot)\BepInEx\plugins\Fika\Fika.Core.dll')">$(GameRoot)\BepInEx\plugins\Fika\Fika.Core.dll</FikaCore>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\WinterOutbreak.csproj" Private="false" />
+    <Reference Include="Fika.Core" HintPath="$(FikaCore)" Private="false" />
+    <Reference Include="BepInEx" HintPath="$(GameRoot)\BepInEx\core\BepInEx.dll" Private="false" />
+    <Reference Include="Assembly-CSharp" HintPath="$(Managed)\Assembly-CSharp.dll" Private="false" />
+    <Reference Include="Comfort" HintPath="$(Managed)\Comfort.dll" Private="false" />
+    <Reference Include="UnityEngine" HintPath="$(Managed)\UnityEngine.dll" Private="false" />
+    <Reference Include="UnityEngine.CoreModule" HintPath="$(Managed)\UnityEngine.CoreModule.dll" Private="false" />
+  </ItemGroup>
+</Project>
