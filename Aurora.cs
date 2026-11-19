@@ -110,7 +110,6 @@ namespace WinterOutbreak
             _auroraDecidedFor = _raid;
             float hour = sky.Cycle.Hour;
             bool night = hour >= AuroraFromHour || hour < AuroraUntilHour;
-            
             // A night raid has a one-in-four chance of an aurora, violet or green
             _auroraThisRaid = _auroraEnabled.Value && night && Random.value < AuroraChance;
             _auroraGreenThisRaid = Random.value < 0.5f;
@@ -208,7 +207,6 @@ namespace WinterOutbreak
             // hidden behind it
             float radius = Mathf.Min(AuroraMaxRadius, camera.farClipPlane * AuroraFarClipShare);
             var transform = aurora.transform;
-            
             transform.position = camera.transform.position;
             transform.localScale = new Vector3(radius, radius, radius);
         }

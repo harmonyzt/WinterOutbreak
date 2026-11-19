@@ -19,7 +19,8 @@ namespace WinterOutbreak
         // Snowstorm weather (snowfall, fog, clouds, wind) is 40 % of Blizzard
         private const float SnowstormShare = 0.4f;
 
-        // Snowstorm wind effects (drift, plumes, gusts, gust clouds) are about 62 % as strong as in a Blizzard and come about 40 % as often
+        // Snowstorm wind effects (drift, plumes, gusts, gust clouds) are about 62 % as strong as in a Blizzard and come
+        // about 40 % as often
         private const float SnowstormEffectStrength = 0.62f;
         private const float SnowstormGustRate = 0.45f;
 
@@ -142,7 +143,7 @@ namespace WinterOutbreak
             var rain = weather.RainController;
             var flakes = rain != null ? rain._snowFlakes : null;
 
-            if (seasons?.Season != ESeason.Winter || seasons.Status != ESeasonStatus.Winter)
+            if (!IsWinterRaid(seasons))
             {
                 ClearWeather(world == null ? "no raid world" : "season is not winter");
                 return;
@@ -156,7 +157,10 @@ namespace WinterOutbreak
 
             var status = Singleton<AbstractGame>.Instance?.Status;
             bool raidStarted = status == GameStatus.Started;
-            var raidPlayer = raidStarted ? _raid?.MainPlayer : null;
+
+            // A headless host's player is a placeholder
+            bool headless = CoopSupport.IsHeadless;
+            var raidPlayer = raidStarted && !headless ? _raid?.MainPlayer : null;
             UpdateWinterExposure(raidPlayer);
             UpdateBreathSmoke(raidPlayer);
             UpdateBonfires(raidPlayer);
@@ -199,7 +203,7 @@ namespace WinterOutbreak
                 _flakes = flakes;
             }
 
-            var stormPlayer = raidStarted && _preset != null ? _raid.MainPlayer : null;
+            var stormPlayer = raidStarted && _preset != null && !headless ? _raid.MainPlayer : null;
             if (raidStarted || !raidPreparing)
             {
                 UpdateSnowDepth(stormPlayer, false);
@@ -221,6 +225,22 @@ namespace WinterOutbreak
                 NotificationManager.DisplayMessageNotification(
                     $"Winter weather: {_preset?.Name ?? "Normal"}.", ENotificationDurationType.Long);
             }
+        }
+
+        private static bool IsWinterRaid(ISeasonsController seasons)
+        {
+            if (seasons == null)
+            {
+                return false;
+            }
+
+            if (seasons.Season == ESeason.Winter && seasons.Status == ESeasonStatus.Winter)
+            {
+                return true;
+            }
+
+            // season controller always says spring, so ask Fika for the real season
+            return CoopSupport.IsHeadlessWinter;
         }
 
         private void TrackRaidWorld(GameWorld world)
@@ -256,7 +276,7 @@ namespace WinterOutbreak
             TrackRaidWorld(world);
             _countdownWorld = world;
             var seasons = world.SeasonsController;
-            if (seasons?.Season != ESeason.Winter || seasons.Status != ESeasonStatus.Winter || world.MainPlayer == null)
+            if (!IsWinterRaid(seasons) || world.MainPlayer == null)
             {
                 return;
             }
@@ -266,7 +286,7 @@ namespace WinterOutbreak
                 return;
             }
 
-            if (_preset != null)
+            if (_preset != null && !CoopSupport.IsHeadless)
             {
                 UpdateSnowDepth(world.MainPlayer, true);
             }

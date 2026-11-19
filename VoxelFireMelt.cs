@@ -33,7 +33,8 @@ namespace WinterOutbreak
         private float _nextFireMeltStamp;
 
         /// <summary>
-        /// With GPU prints, a fire's melt is a smooth round stamp in the print texture, growing with the melt, instead of the 25 cm grid melt.
+        /// With GPU prints, a fire's melt is a smooth round stamp in the print texture, growing with the melt, instead
+        /// of the 25 cm grid melt.
         /// </summary>
         private void UpdateGpuFireMelts()
         {

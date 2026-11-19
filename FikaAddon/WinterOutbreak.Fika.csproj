@@ -4,7 +4,7 @@
     <LangVersion>latest</LangVersion>
     <AssemblyName>WinterOutbreak.Fika</AssemblyName>
     <RootNamespace>WinterOutbreak.Fika</RootNamespace>
-    <Version>1.0.0</Version>
+    <Version>1.0.1</Version>
     <GameRoot Condition="'$(GameRoot)' == ''">C:\SPT41</GameRoot>
     <Managed>$(GameRoot)\EscapeFromTarkov_Data\Managed</Managed>
     <!-- Fika.Core.dll to build against. Override with -p:FikaCore=path when Fika is installed elsewhere. -->

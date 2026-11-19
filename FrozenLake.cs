@@ -739,6 +739,29 @@ namespace WinterOutbreak
             Keep // the sea: all stay
         }
 
+        // Layers that move or differ between games: players and bots, corpses, loot, doors
+        private static readonly string[] MovingLayers =
+        {
+            "Player", "Deadbody", "HitCollider", "PlayerCollisionTest", "Shells", "Loot", "Interactive", "DoorLowPolyCollider"
+        };
+
+        // What the freeze reads as ground
+        private static int FrozenGroundMask(int waterLayer, int borderLayer)
+        {
+            int mask = Physics.DefaultRaycastLayers & ~LayerBit(waterLayer) & ~LayerBit(borderLayer);
+            foreach (string name in MovingLayers)
+            {
+                mask &= ~LayerBit(LayerMask.NameToLayer(name));
+            }
+
+            return mask;
+        }
+
+        private static int LayerBit(int layer)
+        {
+            return layer >= 0 ? 1 << layer : 0;
+        }
+
         private int BuildIceWalls(GameObject root, Vector3 origin, Vector3 axisA, Vector3 axisB, float waterY, int wallLayer, int waterLayer,
             IceWalls walling, IceBorders borders, float step, out int iceCells, out int outsideCells, out int backdropCells, out int bordersDisabled,
             out FrozenIce.IceField field, out IceGrid grid)
@@ -751,7 +774,7 @@ namespace WinterOutbreak
             var onTerrain = new bool[na, nb];
             var hits = new RaycastHit[16];
             int borderLayer = LayerMask.NameToLayer("LevelBorder");
-            int mask = Physics.DefaultRaycastLayers & ~(1 << waterLayer) & ~(borderLayer >= 0 ? 1 << borderLayer : 0);
+            int mask = FrozenGroundMask(waterLayer, borderLayer);
             iceCells = 0;
             outsideCells = 0;
             backdropCells = 0;
@@ -1173,7 +1196,7 @@ namespace WinterOutbreak
             }
 
             int border = LayerMask.NameToLayer("LevelBorder");
-            int mask = Physics.DefaultRaycastLayers & ~(1 << waterLayer) & ~(border >= 0 ? 1 << border : 0);
+            int mask = FrozenGroundMask(waterLayer, border);
             int segments = 0;
             int lines = 0;
 

@@ -1,5 +1,7 @@
 using System;
 using BepInEx;
+using Comfort.Common;
+using Fika.Core.Main.GameMode;
 using Fika.Core.Main.Utils;
 using Fika.Core.Modding;
 using Fika.Core.Modding.Events;
@@ -12,7 +14,7 @@ namespace WinterOutbreak.Fika
     /// <summary>
     /// Fika sync for Winter Outbreak.
     /// </summary>
-    [BepInPlugin("com.harmonyzt.winteroutbreak.fika", "Winter Outbreak Fika Sync", "1.0.0")]
+    [BepInPlugin("com.harmonyzt.winteroutbreak.fika", "Winter Outbreak Fika Sync", "1.0.1")]
     [BepInDependency("com.harmonyzt.winteroutbreak")]
     [BepInDependency("com.fika.core")]
     public sealed class WinterOutbreakFikaPlugin : BaseUnityPlugin, IWinterOutbreakNetwork
@@ -29,6 +31,12 @@ namespace WinterOutbreak.Fika
         public bool IsHost => FikaBackendUtils.IsServer;
 
         public bool IsClient => FikaBackendUtils.IsClient;
+
+        public bool IsHeadless => FikaBackendUtils.IsHeadless;
+
+        // The game controller keeps the season from the backend, untouched by Fika-Headless's spring patch
+        public bool IsHeadlessWinter => FikaBackendUtils.IsHeadless
+            && Singleton<IFikaGame>.Instantiated && Singleton<IFikaGame>.Instance.Season == ESeason.Winter;
 
         private void Awake()
         {
@@ -131,10 +139,11 @@ namespace WinterOutbreak.Fika
 
             if (packet.Kind == WinterPacketKind.Bonfire)
             {
-                CoopSupport.ReceiveBonfire(new SharedBonfire { Position = packet.Position, Yaw = packet.Yaw });
-
-                // Pass it on to every client
+                // Pass it on to every client first, so a host that fails to build it (a headless host without graphics)
+                // still lets everyone else see it
                 Send(packet);
+
+                CoopSupport.ReceiveBonfire(new SharedBonfire { Position = packet.Position, Yaw = packet.Yaw });
             }
         }
 

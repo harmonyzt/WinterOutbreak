@@ -80,11 +80,16 @@ namespace WinterOutbreak
         {
             EffectsManager.Init();
 
-            _lowTemperature = RegisterEffect<WinterLowTemperature>("Low Temperature", "effect_lowtemp.png");
-            _customFrostbite = RegisterEffect<WinterFrostbite>("Frostbite", "effect_frozen.png");
-            _warmingUp = RegisterEffect<WinterWarmingUp>("Warming Up", "effect_warm.png");
-            _snowSlowed = RegisterEffect<WinterSnowSlowed>("Slowed by Snow", "effect_slowed.png");
-            _gearWarmth = RegisterEffect<WinterGearWarmth>("Dressed for the Cold", "effect_warmgear.png");
+            _lowTemperature = RegisterEffect<WinterLowTemperature>("Low Temperature", "effect_lowtemp.png",
+                typeof(NetworkEffects.WinterLowTemperature));
+            _customFrostbite = RegisterEffect<WinterFrostbite>("Frostbite", "effect_frozen.png",
+                typeof(NetworkEffects.WinterFrostbite));
+            _warmingUp = RegisterEffect<WinterWarmingUp>("Warming Up", "effect_warm.png",
+                typeof(NetworkEffects.WinterWarmingUp));
+            _snowSlowed = RegisterEffect<WinterSnowSlowed>("Slowed by Snow", "effect_slowed.png",
+                typeof(NetworkEffects.WinterSnowSlowed));
+            _gearWarmth = RegisterEffect<WinterGearWarmth>("Dressed for the Cold", "effect_warmgear.png",
+                typeof(NetworkEffects.WinterGearWarmth));
             EffectsManager.ErgonomicsPenalties.Add(PluginId, health =>
                 _lowTemperature.Find(health, EBodyPart.Head) != null ? -0.15f : 0f);
             EffectsManager.MovementSpeedPenalties.Add(SnowSpeedPenalty, health =>
@@ -100,7 +105,8 @@ namespace WinterOutbreak
             EffectsManager.MovementSpeedPenalties.Remove(SnowSpeedPenalty);
         }
 
-        private static EffectRegistration RegisterEffect<T>(string name, string icon)
+        // The network type is how the effect shows on another Fika player's copy of you
+        private static EffectRegistration RegisterEffect<T>(string name, string icon, System.Type networkType)
             where T : ActiveHealthController.Effect, new()
         {
             return EffectsManager.RegisterEffect<T>(typeof(WinterOutbreakPlugin).Assembly, new EffectOptions
@@ -111,7 +117,8 @@ namespace WinterOutbreak
                 WorkTime = float.PositiveInfinity,
                 ResidueTime = 0f,
                 RemoveOnBodyPartDestroyed = false,
-                PersistAcrossRaids = false
+                PersistAcrossRaids = false,
+                NetworkEffectType = networkType
             });
         }
 
@@ -551,5 +558,28 @@ namespace WinterOutbreak
         {
             SetHealthRatesPerSecond(rate, 0f, 0f, 0f);
         }
+    }
+}
+
+namespace WinterOutbreak.NetworkEffects
+{
+    public sealed class WinterSnowSlowed : NetworkHealthController.Effect, IWinterSnowSlowed, IEffectTriggersUIPanel
+    {
+    }
+
+    public sealed class WinterLowTemperature : NetworkHealthController.Effect, IWinterLowTemperature, IEffectTriggersUIPanel
+    {
+    }
+
+    public sealed class WinterFrostbite : NetworkHealthController.Effect, IWinterFrostbite, IEffectTriggersUIPanel
+    {
+    }
+
+    public sealed class WinterGearWarmth : NetworkHealthController.Effect, IWinterGearWarmth, IEffectTriggersUIPanel
+    {
+    }
+
+    public sealed class WinterWarmingUp : NetworkHealthController.Effect, IWinterWarmingUp, IEffectTriggersUIPanel
+    {
     }
 }

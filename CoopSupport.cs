@@ -19,6 +19,16 @@ namespace WinterOutbreak
         bool IsClient { get; }
 
         /// <summary>
+        /// This game is a headless host.
+        /// </summary>
+        bool IsHeadless { get; }
+
+        /// <summary>
+        /// This game is a headless host and the raid is in winter.
+        /// </summary>
+        bool IsHeadlessWinter { get; }
+
+        /// <summary>
         /// Host only: sends the raid's weather to every client.
         /// </summary>
         void SendWeather(SharedWeather weather);
@@ -78,6 +88,10 @@ namespace WinterOutbreak
         public static bool IsHost => Network != null && Network.IsHost;
 
         public static bool IsClient => Network != null && Network.IsClient;
+
+        public static bool IsHeadless => Network != null && Network.IsHeadless;
+
+        public static bool IsHeadlessWinter => Network != null && Network.IsHeadlessWinter;
 
         /// <summary>
         /// The host's current weather, once it has been rolled for this raid.

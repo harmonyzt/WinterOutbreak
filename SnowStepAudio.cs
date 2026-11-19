@@ -138,9 +138,10 @@ namespace WinterOutbreak
             }
         }
 
+        // Every player crunches in the snow, including other Fika players, so everyone hears the same steps
         private AudioClip PickSnowStep(Player player, bool running)
         {
-            if ((!player.IsYourPlayer && !player.IsAI) || player.MovementContext?.IsGrounded != true)
+            if (player.MovementContext?.IsGrounded != true)
             {
                 return null;
             }
@@ -172,8 +173,7 @@ namespace WinterOutbreak
         // Stopping on bare ice: the slide
         private AudioClip PickIceStop(Player player)
         {
-            if ((!player.IsYourPlayer && !player.IsAI) || player.MovementContext?.IsGrounded != true
-                || !FrozenIce.IsBareIce(player.Position))
+            if (player.MovementContext?.IsGrounded != true || !FrozenIce.IsBareIce(player.Position))
             {
                 return null;
             }

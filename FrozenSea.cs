@@ -584,7 +584,7 @@ namespace WinterOutbreak
         private static bool BesideOpenWater(IceGrid grid, Vector3 origin, Vector3 axisA, Vector3 axisB, int i, int j, int borderMask)
         {
             int water = LayerMask.NameToLayer("Water");
-            int mask = Physics.DefaultRaycastLayers & ~borderMask & ~(water >= 0 ? 1 << water : 0);
+            int mask = FrozenGroundMask(water, -1) & ~borderMask;
             for (int a = Mathf.Max(0, i - 1); a <= Mathf.Min(grid.CellsA - 1, i + 1); a++)
             {
                 for (int b = Mathf.Max(0, j - 1); b <= Mathf.Min(grid.CellsB - 1, j + 1); b++)
