@@ -5,8 +5,7 @@ namespace WinterOutbreak
 {
     /// <summary>
     /// Billowing snow powder for bursts (grenades, BTR wheels): soft puffs that grow as they spread, slow down with air
-    /// drag, wander with turbulence and settle slowly. Colours are multiplied by the scene's snow light
-    /// (BlowingSnow.SampleSnowLight), so the powder is grey in a dim blizzard instead of glowing white.
+    /// drag, wander with turbulence and settle slowly.
     /// </summary>
     internal sealed class SnowPowder
     {
@@ -42,7 +41,7 @@ namespace WinterOutbreak
             var shape = _particles.shape;
             shape.enabled = false;
 
-            // Air drag: fast puffs lose their speed within a second or two and hang.
+            // Air drag: fast puffs lose their speed within a second or two and hang
             var limit = _particles.limitVelocityOverLifetime;
             limit.enabled = true;
             limit.limit = 100f;
@@ -106,7 +105,7 @@ namespace WinterOutbreak
         }
 
         /// <summary>
-        /// Snow light as a particle tint: kept a little above the sampled level so powder stays readable.
+        /// Snow light as a particle tint
         /// </summary>
         public static Color Tint(float brightness, float alpha)
         {
@@ -116,8 +115,7 @@ namespace WinterOutbreak
 
         private static Color BlowingSnowLight()
         {
-            // SampleSnowLight is a luminance-led grey from ambient plus some sun. Powder is unlit, so it reads brighter
-            // than the lit ground snow beside it: take it greyer and a little darker.
+            // SampleSnowLight is a luminance-led grey from ambient plus some sun
             Color light = WinterOutbreakPlugin.SampleSnowLight();
             float luminance = light.r * 0.3f + light.g * 0.59f + light.b * 0.11f;
             return Color.Lerp(light, new Color(luminance, luminance, luminance), 0.4f) * 0.86f;
@@ -140,7 +138,7 @@ namespace WinterOutbreak
                     float px = (x + 0.5f) / size * 2f - 1f;
                     float py = (y + 0.5f) / size * 2f - 1f;
                     float angle = Mathf.Atan2(py, px);
-                    // A lumpy edge and some inner density variation, so overlapping puffs read as cloud, not discs.
+                    // A lumpy edge and some inner density variation, so overlapping puffs read as cloud, not discs
                     float edge = 0.82f + 0.07f * Mathf.Sin(3f * angle + 0.6f) + 0.05f * Mathf.Sin(5f * angle + 2.1f);
                     float radius = Mathf.Sqrt(px * px + py * py) / edge;
                     float body = Mathf.SmoothStep(1f, 0f, Mathf.InverseLerp(0.15f, 1f, radius));

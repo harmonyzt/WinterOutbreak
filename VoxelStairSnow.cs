@@ -21,7 +21,8 @@ namespace WinterOutbreak
         private readonly List<Vector3> _stairVertices = new List<Vector3>();
         private readonly List<int> _stairTriangles = new List<int>();
         private readonly List<Color> _stairColors = new List<Color>();
-        
+
+        // Whether a point lies on one of the flight's treads, within that tread's own width
         private static bool TreadCovers(StairFlight flight, Vector2 point, bool withLandings, float margin = 0f)
         {
             Vector2 offset = point - flight.Origin;
@@ -95,10 +96,7 @@ namespace WinterOutbreak
 
             if (_stairSnowObject == null)
             {
-                _stairSnowMesh = new Mesh
-                {
-                    name = "Winter Outbreak Stair Snow Mesh"
-                };
+                _stairSnowMesh = new Mesh { name = "Winter Outbreak Stair Snow Mesh" };
                 _stairSnowObject = new GameObject("Winter Outbreak Stair Snow");
                 _stairSnowObject.AddComponent<MeshFilter>().sharedMesh = _stairSnowMesh;
 
@@ -132,7 +130,7 @@ namespace WinterOutbreak
             _stairSnowMesh.RecalculateBounds();
         }
 
-        // How open each tread is: three points across it, the same shelter test as the grid
+        // How open each tread is
         private float[] MeasureTreadExposure(StairFlight flight)
         {
             var exposure = new float[flight.Heights.Length];
@@ -171,10 +169,12 @@ namespace WinterOutbreak
                 float back = flight.Risers[k + 1];
                 float y = flight.Heights[k];
 
-                // Profile along the climb: drape over the nose, a rounded edge, then a little rise against the riser
+                // Profile along the climb
                 var profile = new[]
                 {
-                    new Vector2(front - 0.015f, y - 0.015f), new Vector2(front - 0.015f, y + thickness * 0.45f), new Vector2(front + thickness * 0.6f, y + thickness),
+                    new Vector2(front - 0.015f, y - 0.015f),
+                    new Vector2(front - 0.015f, y + thickness * 0.45f),
+                    new Vector2(front + thickness * 0.6f, y + thickness),
                     new Vector2(back, y + thickness * 1.2f)
                 };
 
@@ -187,7 +187,12 @@ namespace WinterOutbreak
             if (bank > 0.01f)
             {
                 float first = flight.Risers[0];
-                var foot = new[] { new Vector2(first - 0.45f, bottom - 0.01f), new Vector2(first - 0.25f, bottom + bank * 0.75f), new Vector2(first - 0.015f, bottom + bank) };
+                var foot = new[]
+                {
+                    new Vector2(first - 0.45f, bottom - 0.01f),
+                    new Vector2(first - 0.25f, bottom + bank * 0.75f),
+                    new Vector2(first - 0.015f, bottom + bank)
+                };
 
                 AddTreadSlab(flight, foot, bottom, bank, 1f, TreadLeft(flight, 0), TreadRight(flight, 0));
             }
@@ -195,17 +200,19 @@ namespace WinterOutbreak
 
         private static float TreadLeft(StairFlight flight, int k)
         {
-            return flight.TreadLeft != null && k < flight.TreadLeft.Length && flight.TreadLeft[k] > 0.1f ? flight.TreadLeft[k] : flight.Left;
+            return flight.TreadLeft != null && k < flight.TreadLeft.Length && flight.TreadLeft[k] > 0.1f
+                ? flight.TreadLeft[k] : flight.Left;
         }
 
         private static float TreadRight(StairFlight flight, int k)
         {
-            return flight.TreadRight != null && k < flight.TreadRight.Length && flight.TreadRight[k] > 0.1f ? flight.TreadRight[k] : flight.Right;
+            return flight.TreadRight != null && k < flight.TreadRight.Length && flight.TreadRight[k] > 0.1f
+                ? flight.TreadRight[k] : flight.Right;
         }
 
-        // Extrudes a profile across the flight's width. The two outer rows lie flat on the tread, so the ends slope
-        // down instead of standing as box sides.
-        private void AddTreadSlab(StairFlight flight, Vector2[] profile, float floor, float thickness, float exposure, float leftWidth, float rightWidth)
+        // Extrudes a profile across the flight's width
+        private void AddTreadSlab(StairFlight flight, Vector2[] profile, float floor, float thickness, float exposure,
+            float leftWidth, float rightWidth)
         {
             float left = -leftWidth + 0.02f;
             float right = rightWidth - 0.02f;
@@ -236,7 +243,7 @@ namespace WinterOutbreak
                     int c = a + count;
                     int d = c + 1;
 
-                    // Side points left of the climb when looking up the flight, so this winding faces up.
+                    // Side points left of the climb when looking up the flight, so this winding faces up
                     _stairTriangles.Add(a);
                     _stairTriangles.Add(c);
                     _stairTriangles.Add(b);

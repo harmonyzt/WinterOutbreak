@@ -49,8 +49,9 @@ namespace WinterOutbreak
         {
             point = default;
             if (!SampleSole(out Vector3 sole, out forward, out float plantHeight)
-                || !Physics.Raycast(sole + Vector3.up * 0.05f, Vector3.down, out var floor, 0.40f, floorMask, QueryTriggerInteraction.Ignore) || floor.normal.y < 0.48f
-                || sole.y - floor.point.y > plantHeight + 0.07f)
+                || !Physics.Raycast(sole + Vector3.up * 0.05f, Vector3.down, out var floor, 0.40f,
+                    floorMask, QueryTriggerInteraction.Ignore)
+                || floor.normal.y < 0.48f || sole.y - floor.point.y > plantHeight + 0.07f)
             {
                 return false;
             }
@@ -119,7 +120,6 @@ namespace WinterOutbreak
             Vector3 sole = ankle;
             float plantHeight = 0.16f;
             forward = _ankle.rotation * _localForward;
-
             if (_toe != null)
             {
                 Vector3 toe = _toe.position;
@@ -145,7 +145,8 @@ namespace WinterOutbreak
             _lastSample = sole;
             _lastSampleTime = now;
 
-            if (!Physics.Raycast(sole + Vector3.up * 0.05f, Vector3.down, out var floor, 0.35f, floorMask, QueryTriggerInteraction.Ignore) || floor.normal.y < 0.48f
+            if (!Physics.Raycast(sole + Vector3.up * 0.05f, Vector3.down, out var floor, 0.35f,
+                    floorMask, QueryTriggerInteraction.Ignore) || floor.normal.y < 0.48f
                 || sole.y - floor.point.y > plantHeight + 0.045f)
             {
                 Lift();
@@ -159,7 +160,6 @@ namespace WinterOutbreak
 
             point = floor.point;
             bool settled = travel.sqrMagnitude <= 1.1f * 1.1f * elapsed * elapsed;
-
             return RecordContact(point, forward, settled, now);
         }
 
@@ -179,7 +179,6 @@ namespace WinterOutbreak
             _lastPlant = point;
             _lastDirection = forward;
             _nextPlant = now + 0.12f;
-
             return stamp;
         }
     }

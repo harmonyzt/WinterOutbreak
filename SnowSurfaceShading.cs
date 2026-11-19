@@ -4,7 +4,7 @@ using UnityEngine;
 namespace WinterOutbreak
 {
     /// <summary>
-    /// Only the GPU snow material reads these; with CPU prints they have no effect
+    /// Only the GPU snow material reads these; with CPU prints they have no effect.
     /// </summary>
     public sealed partial class WinterOutbreakPlugin
     {
@@ -34,24 +34,28 @@ namespace WinterOutbreak
         private void BindSnowSurfaceSettings()
         {
             BindBulletSnowSettings();
-            _gpuSnowPrints = Config.Bind("Snow Surface", "GPU Snow Prints", true,
+            const string oldSection = "Snow Surface";
+
+            _snowQuality = BindSetting(PerformanceSection, "Snow Quality", SnowShaderQuality.High,
+                "Low is cheaper for weaker graphics cards: simpler ripples, no sparkle and simpler prints.", 1,
+                oldSection: oldSection, oldKey: "Quality");
+            _gpuSnowPrints = BindSetting(PerformanceSection, "GPU Snow Prints", true,
                 "Draws footprints, prone and body marks and craters on the graphics card, which is faster. "
-                + "Turn off only if prints look wrong. Applies from the next raid.");
-            _snowQuality = Config.Bind("Snow Surface", "Quality", SnowShaderQuality.High,
-                "Low is cheaper for weaker graphics cards: simpler ripples, no sparkle and simpler prints.");
-            const string section = "Snow Surface";
-            _windRipples = Config.Bind(section, "Wind Ripples", 1f, new ConfigDescription(
-                "Small ridges the wind carves across the snow. 0 turns them off.",
-                new AcceptableValueRange<float>(0f, 2f)));
-            _snowSparkle = Config.Bind(section, "Sparkle", 1f, new ConfigDescription(
-                "Glints from snow crystals in sunlight. 0 turns them off.",
-                new AcceptableValueRange<float>(0f, 2f)));
-            _packedSnow = Config.Bind(section, "Packed Snow", 1f, new ConfigDescription(
-                "How much darker and glossier trampled snow in prints and tracks looks. 0 turns it off.",
-                new AcceptableValueRange<float>(0f, 1f)));
-            _printRims = Config.Bind(section, "Print Rims", 1f, new ConfigDescription(
-                "The lip of snow pushed up around prints, tracks and craters. 0 turns it off.",
-                new AcceptableValueRange<float>(0f, 2f)));
+                + "Turn off only if prints look wrong. Applies from the next raid.", 10,
+                advanced: true, oldSection: oldSection);
+
+            _windRipples = BindSetting(SnowSection, "Wind Ripples", 1f,
+                "Small ridges the wind carves across the snow. 0 turns them off.", 10,
+                true, new AcceptableValueRange<float>(0f, 2f), oldSection);
+            _snowSparkle = BindSetting(SnowSection, "Sparkle", 1f,
+                "Glints from snow crystals in sunlight. 0 turns them off.", 11,
+                true, new AcceptableValueRange<float>(0f, 2f), oldSection);
+            _packedSnow = BindSetting(SnowSection, "Packed Snow", 1f,
+                "How much darker and glossier trampled snow in prints and tracks looks. 0 turns it off.", 12,
+                true, new AcceptableValueRange<float>(0f, 1f), oldSection);
+            _printRims = BindSetting(SnowSection, "Print Rims", 1f,
+                "The lip of snow pushed up around prints, tracks and craters. 0 turns it off.", 13,
+                true, new AcceptableValueRange<float>(0f, 2f), oldSection);
         }
 
         private void UpdateSnowSurfaceShading()
@@ -60,8 +64,7 @@ namespace WinterOutbreak
             float dt = Time.deltaTime;
             if (_stormWind != null)
             {
-                // Ripples follow the prevailing wind and build with the storm; they keep their last direction and fade
-                // slowly when the storm drops.
+                // Ripples follow the prevailing wind and build with the storm
                 var prevailing = new Vector2(_stormWind.Prevailing.x, _stormWind.Prevailing.z);
                 if (prevailing.sqrMagnitude > 0.01f)
                 {
@@ -74,7 +77,7 @@ namespace WinterOutbreak
             }
             else
             {
-                // Old snow keeps a trace of earlier wind even without blowing snow.
+                // Old snow keeps a trace of earlier wind even without blowing snow
                 _rippleStrength = Mathf.MoveTowards(_rippleStrength, 0.35f, dt * 0.01f);
             }
 
@@ -107,7 +110,7 @@ namespace WinterOutbreak
             }
 
             Shader.SetGlobalVector(SunId, sun);
-            // Game time, matching the refined-at times in the snow meshes' UV3.z.
+            // Game time, matching the refined-at times in the snow meshes' UV3.z
             Shader.SetGlobalVector(ClockId, new Vector4(Time.time, 0f, 0f, 0f));
         }
     }

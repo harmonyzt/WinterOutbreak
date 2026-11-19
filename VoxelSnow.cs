@@ -17,7 +17,6 @@ namespace WinterOutbreak
         private const float ChunkSize = ChunkWidth * CellWidth;
         private const int SampleBudget = 256;
         private const double SampleSeconds = 0.002;
-        private const double SecondRebuildSeconds = 0.0045;
         private const int CountdownSampleBudget = 2048;
         private const double CountdownSampleSeconds = 0.010;
         private const double CountdownRaisedSeconds = 0.008;
@@ -35,12 +34,14 @@ namespace WinterOutbreak
         private const float DistantDepthStep = 0.02f;
         private const float GrowthSeconds = 0.85f;
 
-        private static readonly (int X, int Z, float Distance)[] FeatherOffsets = BuildSurfaceOffsets(FeatherCells, FeatherDistance, 0.5f);
+        private static readonly (int X, int Z, float Distance)[] FeatherOffsets =
+            BuildSurfaceOffsets(FeatherCells, FeatherDistance, 0.5f);
 
         private const float ShelterTaperReach = 2.10f;
         private const int ShelterTaperCells = 9;
         private const float MoundReach = 1.10f;
-        private static readonly (int X, int Z, float Distance)[] GroundEdgeOffsets = BuildSurfaceOffsets(ShelterTaperCells, ShelterTaperReach, 0.5f, MoundReach);
+        private static readonly (int X, int Z, float Distance)[] GroundEdgeOffsets =
+            BuildSurfaceOffsets(ShelterTaperCells, ShelterTaperReach, 0.5f, MoundReach);
 
         private const float MinimumDrift = 0.06f;
         private const float MaxDrapeStep = 0.30f;
@@ -50,7 +51,7 @@ namespace WinterOutbreak
 
         // Snow thins toward it over 55-95 cm, and ground on a raised surface (planter, wall top, building base) holds
         // at most RaisedSurfaceDepth within RaisedFullReach of its rim, fading back to the storm depth by
-        // RaisedFadeReach.
+        // RaisedFadeReach
         private const float RimDrop = MaxDrapeStep;
         private const int RimCells = 5;
         private const float RimReachMin = 0.55f;
@@ -92,7 +93,8 @@ namespace WinterOutbreak
         private readonly int _terrainMask = LayersMaskController.TerrainMask;
         private readonly int _solidMask = LayersMaskController.HighPolyCollider;
         private readonly int _fallbackGroundMask = LayersMaskController.LowPolyColliderLayerMask;
-        private readonly int _doorMask = LayersMaskController.HighPolyCollider | LayersMaskController.LowPolyColliderLayerMask | LayersMaskController.PlayerStaticDoorMask;
+        private readonly int _doorMask = LayersMaskController.HighPolyCollider
+            | LayersMaskController.LowPolyColliderLayerMask | LayersMaskController.PlayerStaticDoorMask;
         private readonly Dictionary<Vector2Int, Chunk> _chunks = new Dictionary<Vector2Int, Chunk>();
         private readonly List<Chunk> _active = new List<Chunk>();
         private readonly List<Vector2Int> _expiredChunks = new List<Vector2Int>();
@@ -101,7 +103,7 @@ namespace WinterOutbreak
         private readonly List<int> _triangles = new List<int>();
         private readonly Material _material;
 
-        // Terrain-less columns search around a local ground height taken from the static scene, never the player.
+        // Terrain-less columns search around a local ground height taken from the static scene, never the player
         private const float SweepTop = 250f;
         private const float SweepLength = 500f;
         private const float SweepStep = 0.02f;
@@ -111,6 +113,8 @@ namespace WinterOutbreak
         private const float UpperLevelRise = 0.50f;
         private const float RoofJoinNormal = 0.85f;
         private const float RoofJoinTolerance = 0.15f;
+
+        private const float MaxRoofRise = 4.5f;
         private const int ReferenceCacheLimit = 131072;
         private const float FlatNormal = 0.995f;
         private const float FlatGroundReach = 2f;
@@ -131,13 +135,13 @@ namespace WinterOutbreak
         private int _refreshIndex;
         private float _nextCacheSweep;
         private float _nextChunkSelection;
-        private bool _footprintDeferred;
         private Vector3 _previousPosition;
         private Vector3 _streamVelocity;
 
         public bool SuppressIndoorSnow { get; }
 
-        public VoxelSnowArea(Vector3 center, float streamRadius, bool suppressIndoorSnow, int maxFootprintsPerChunk, bool gpuPrints = false)
+        public VoxelSnowArea(Vector3 center, float streamRadius, bool suppressIndoorSnow,
+            int maxFootprintsPerChunk, bool gpuPrints = false)
         {
             _origin = center;
             _streamRadius = streamRadius;
@@ -146,7 +150,8 @@ namespace WinterOutbreak
             {
                 _prints = SnowPrintTexture.TryCreate(out string status);
                 PrintStatus = status;
-                _maxFootprintsPerChunk = _prints != null ? Mathf.Max(maxFootprintsPerChunk, GpuFootprintsPerChunk) : maxFootprintsPerChunk;
+                _maxFootprintsPerChunk = _prints != null ? Mathf.Max(maxFootprintsPerChunk, GpuFootprintsPerChunk)
+                    : maxFootprintsPerChunk;
             }
             else
             {
@@ -154,13 +159,11 @@ namespace WinterOutbreak
             }
 
             SuppressIndoorSnow = suppressIndoorSnow;
-            // The surface reads base ground up to FeatherCells + 3 + StairReach + 2 * ShapeWalk cells outside a chunk.
-            // The surface cache reaches SurfaceCacheMargin + 1 cells outside the chunk (the rim field needs it).
+            // The surface reads base ground up to FeatherCells + 3 + StairReach + 2 * ShapeWalk cells outside a chunk
             int shapeReach = SurfaceCacheMargin + 1 + StairReach + ShapeWalk + GapWalk + 2;
             _samplePadding = Mathf.Max(shapeReach, suppressIndoorSnow
                 ? Mathf.Max(FeatherCells + GapRepairCells, ShelterTaperCells) + 1
-                // A halo cell's drift field must be exact: the surface cache (rim field) reads SurfaceCacheMargin + 1
-                // cells past the chunk, and each of those cells reads openings up to DriftFieldCells away.
+                // A halo cell's drift field must be exact
                 : SurfaceCacheMargin + 1 + DriftFieldCells);
             _samplingWidth = ChunkWidth + 2 * _samplePadding;
             _samplesPerChunk = _samplingWidth * _samplingWidth;
@@ -178,11 +181,15 @@ namespace WinterOutbreak
                 return;
             }
 
+            StartFrameBudget(preparing);
             _stairCountdown = preparing;
-            _prints?.Update(playerPosition, Time.time);
+
+            // Its centre now leads toward the view
+            UpdateViewDirection();
+            _prints?.Update(playerPosition + _viewDirection * PrintViewLead, Time.time);
             if (_prints != null)
             {
-                // Snow depth for the shader's smooth growth between rebuilds (snapped like the rebuilt depth).
+                // Snow depth for the shader's smooth growth between rebuilds (snapped like the rebuilt depth)
                 Shader.SetGlobalFloat(SnowDepthId, depth < NearbyDepthStep ? 0f : depth);
             }
 
@@ -228,7 +235,7 @@ namespace WinterOutbreak
                 }
 
                 if (distance < nearestGrowthDistance && NeedsDepthRefresh(chunk.Depth, depth,
-                        _prints != null ? GpuNearbyDepthStep : NearbyDepthStep, fullyAccumulated, _prints != null))
+                    _prints != null ? GpuNearbyDepthStep : NearbyDepthStep, fullyAccumulated, _prints != null))
                 {
                     nearbyGrowth = chunk;
                     nearestGrowthDistance = distance;
@@ -253,10 +260,14 @@ namespace WinterOutbreak
                 }
             }
 
-            long rebuildDeadline = Stopwatch.GetTimestamp() + (long)(Stopwatch.Frequency * SecondRebuildSeconds);
-            UpdateGroundPreview(local, ahead, direction, lead, depth, fullyAccumulated, now, preparing);
+            SetGroundPreviewHidden(FarSnowActive);
+            if (!FarSnowActive)
+            {
+                UpdateGroundPreview(local, ahead, direction, lead, depth, fullyAccumulated, now, preparing);
+            }
 
-            if (_sampling != null && DistanceSquared(_sampling, local) > _releaseRadiusSquared && DistanceSquared(_sampling, ahead) > _releaseRadiusSquared)
+            if (_sampling != null && DistanceSquared(_sampling, local) > _releaseRadiusSquared
+                && DistanceSquared(_sampling, ahead) > _releaseRadiusSquared)
             {
                 _sampling = null;
                 _nextChunkSelection = 0f;
@@ -272,85 +283,101 @@ namespace WinterOutbreak
             {
                 _nextChunkSelection = now + ChunkSelectionInterval;
                 Chunk preferred = FindPreferredChunk(local, ahead, direction, lead);
-                if (_sampling == null || (preferred != null && preferred != _sampling && StreamPriority(ChunkOffset(preferred.Key, local), direction, lead) + 16f
+                if (_sampling == null || (preferred != null && preferred != _sampling
+                    && StreamPriority(ChunkOffset(preferred.Key, local), direction, lead) + 16f
                         < StreamPriority(ChunkOffset(_sampling.Key, local), direction, lead)))
                 {
                     _sampling = preferred;
                 }
             }
 
-            if (_sampling != null && SampleChunk(_sampling, preparing))
+            // Sample a new chunk only while the chunks already sampled are not piling up for preparation
+            bool sampleMore = preparing || _publishQueue.Count < MaxPublishBacklog;
+            if (_sampling != null && sampleMore && HasFrameTime(SamplingShare) && SampleChunk(_sampling, preparing))
             {
                 QueueForPublish();
             }
 
             if (preparing && raisedSampling != null)
             {
-                SampleRaisedChunk(raisedSampling, Stopwatch.GetTimestamp() + (long)(Stopwatch.Frequency * CountdownRaisedSeconds), true);
+                SampleRaisedChunk(raisedSampling,
+                    Stopwatch.GetTimestamp() + (long)(Stopwatch.Frequency * CountdownRaisedSeconds), true);
             }
-            else if (raisedSampling != null && Stopwatch.GetTimestamp() < rebuildDeadline)
+            else if (raisedSampling != null && HasFrameTime(RaisedShare))
             {
-                SampleRaisedChunk(raisedSampling, rebuildDeadline);
+                SampleRaisedChunk(raisedSampling, FrameShare(RaisedShare));
             }
 
-            long preparationStarted = Stopwatch.GetTimestamp();
-            Chunk ready = AdvancePublishPreparation(local, ahead, direction, lead, preparing);
-            // Preparation has its own budget; it must not use up the time growth and refill rebuilds wait for.
-            rebuildDeadline += Stopwatch.GetTimestamp() - preparationStarted;
-            bool sampled = ready != null;
-            if (sampled && (footprint == null || !_footprintDeferred))
-            {
-                PublishChunk(ready, depth);
-                _footprintDeferred = footprint != null;
-                if (footprint != null && Stopwatch.GetTimestamp() < rebuildDeadline)
-                {
-                    RebuildChunk(footprint, depth, "footprints");
-                    _footprintDeferred = false;
-                }
+            Chunk ready = HasFrameTime() ? AdvancePublishPreparation(local, ahead, direction, lead, preparing) : null;
 
-                return;
-            }
-
-            // Give footprints the next turn if sampling and the first rebuild used the time target.
-            _footprintDeferred = false;
+            // Footprints come first and do not wait for the budget
             if (footprint != null)
             {
-                RebuildChunk(footprint, depth, "footprints");
-                if (sampled && Stopwatch.GetTimestamp() < rebuildDeadline)
+                if (PrepareBeforeRebuild(footprint, true))
                 {
-                    PublishChunk(ready, depth);
+                    RebuildChunk(footprint, depth, "footprints");
                 }
 
                 return;
             }
 
-            if (nearbyGrowth != null)
+            // Distant growth and refill get a turn of their own every few frames, even while publishing and nearby work
+            // fill the budget
+            bool distantTurn = _distantWaitFrames >= MaxDistantWaitFrames;
+            Chunk urgent = nearbyGrowth ?? raisedRefresh;
+            if (!distantTurn && (ready != null || urgent != null))
             {
-                RebuildChunk(nearbyGrowth, depth, "nearby growth");
+                _distantWaitFrames++;
+
+                // One rebuild per frame, and only with budget left, but a waiting one still runs every few frames
+                if (!HasFrameTime() && _rebuildWaitFrames < MaxRebuildWaitFrames)
+                {
+                    _rebuildWaitFrames++;
+                    return;
+                }
+
+                _rebuildWaitFrames = 0;
+                if (ready != null)
+                {
+                    PublishChunk(ready, depth);
+                    return;
+                }
+
+                string reason = urgent == nearbyGrowth ? "nearby growth" : "raised refresh";
+                if (PrepareBeforeRebuild(urgent))
+                {
+                    RebuildChunk(urgent, depth, reason);
+                }
+
                 return;
             }
 
-            if (raisedRefresh != null)
+            // Otherwise distant work waits for a frame where at least half the budget is still free
+            if (!distantTurn && !HasFrameTime(DistantRebuildShare))
             {
-                RebuildChunk(raisedRefresh, depth, "raised refresh");
+                _distantWaitFrames++;
                 return;
             }
 
-            // Spend remaining rebuild time on distant growth and impression refill. This pass is the lowest priority,
-            // so it waits for a frame where sampling and the higher passes left time in the target.
-            if (Stopwatch.GetTimestamp() >= rebuildDeadline)
-            {
-                return;
-            }
-
+            _distantWaitFrames = 0;
             for (int i = 0; i < _active.Count; i++)
             {
                 _refreshIndex %= _active.Count;
                 var chunk = _active[_refreshIndex++];
                 bool refill = now >= chunk.FootprintRefresh;
-                if (refill || NeedsDepthRefresh(chunk.Depth, depth, _prints != null ? GpuDistantDepthStep : DistantDepthStep, fullyAccumulated, _prints != null))
+                if (refill || NeedsDepthRefresh(chunk.Depth, depth,
+                    _prints != null ? GpuDistantDepthStep : DistantDepthStep, fullyAccumulated, _prints != null))
                 {
-                    RebuildChunk(chunk, depth, refill ? "footprint refill" : "distant growth");
+                    if (PrepareBeforeRebuild(chunk))
+                    {
+                        RebuildChunk(chunk, depth, refill ? "footprint refill" : "distant growth");
+                    }
+                    else
+                    {
+                        // Come back to the same chunk once it is prepared
+                        _refreshIndex--;
+                    }
+
                     break;
                 }
             }
@@ -371,8 +398,7 @@ namespace WinterOutbreak
                 return;
             }
 
-            // Refresh before the surface is prepared. A neighbour's scan has usually cached this chunk's drift field
-            // from a partly sampled region; preparing first drew that field, or mixed it with a mid-scan recompute.
+            // Refresh before the surface is prepared
             RefreshDriftNear(chunk.Key);
             chunk.PublishQueued = true;
             _publishQueue.Add(chunk);
@@ -391,7 +417,7 @@ namespace WinterOutbreak
                 Chunk chunk = _publishQueue[i];
                 if (DistanceSquared(chunk, local) > _releaseRadiusSquared && DistanceSquared(chunk, ahead) > _releaseRadiusSquared)
                 {
-                    // Start over if it comes back: its samples may be dropped from the cache meanwhile.
+                    // Start over if it comes back
                     chunk.PublishQueued = false;
                     chunk.PrepareStep = 0;
                     _publishQueue.RemoveAt(i);
@@ -408,13 +434,14 @@ namespace WinterOutbreak
 
             if (best != null)
             {
-                double seconds = preparing ? CountdownPrepareSliceSeconds : _publishQueue.Count > 1 ? BacklogPrepareSliceSeconds : PrepareSliceSeconds;
-                long deadline = Stopwatch.GetTimestamp() + (long)(Stopwatch.Frequency * seconds);
+                double seconds = preparing ? CountdownPrepareSliceSeconds
+                    : _publishQueue.Count > 1 ? BacklogPrepareSliceSeconds : PrepareSliceSeconds;
+                long deadline = System.Math.Min(FrameShare(1.0),
+                    Stopwatch.GetTimestamp() + (long)(Stopwatch.Frequency * seconds));
                 return PrepareSurfaceSlice(best, deadline) ? best : null;
             }
 
-            // Nothing to publish: prepare again, ahead of their next rebuild, live chunks whose surface a drift refresh
-            // invalidated. A rebuild that comes first finishes the rest itself.
+            // Nothing to publish
             for (int i = 0; i < _active.Count; i++)
             {
                 _reprepareIndex %= _active.Count;
@@ -422,7 +449,9 @@ namespace WinterOutbreak
                 if (!chunk.SurfacePrepared && chunk.Columns != null)
                 {
                     double seconds = preparing ? CountdownPrepareSliceSeconds : PrepareSliceSeconds;
-                    PrepareSurfaceSlice(chunk, Stopwatch.GetTimestamp() + (long)(Stopwatch.Frequency * seconds));
+                    long deadline = System.Math.Min(FrameShare(1.0),
+                        Stopwatch.GetTimestamp() + (long)(Stopwatch.Frequency * seconds));
+                    PrepareSurfaceSlice(chunk, deadline);
                     break;
                 }
 
@@ -445,14 +474,15 @@ namespace WinterOutbreak
         }
 
         // With GPU prints the shader grows the snow between rebuilds, so rebuilds only correct the shape every few
-        // centimetres.
+        // centimetres
         private const float GpuNearbyDepthStep = 0.03f;
         private const float GpuDistantDepthStep = 0.06f;
         private static readonly int BuiltDepthId = Shader.PropertyToID("_WSBuiltDepth");
         private static readonly int SnowDepthId = Shader.PropertyToID("_WSSnowDepth");
         private MaterialPropertyBlock _growthBlock;
 
-        private static bool NeedsDepthRefresh(float rendered, float depth, float step, bool fullyAccumulated, bool smoothGrowth = false)
+        private static bool NeedsDepthRefresh(float rendered, float depth, float step, bool fullyAccumulated,
+            bool smoothGrowth = false)
         {
             if (depth == 0f || rendered == 0f || fullyAccumulated || (!smoothGrowth && depth < rendered))
             {
@@ -478,7 +508,9 @@ namespace WinterOutbreak
                     ExpireFootprints(chunk, now);
                 }
 
-                if (chunk == _sampling || DistanceSquared(chunk, local) <= _sampleCacheRadiusSquared || DistanceSquared(chunk, ahead) <= _sampleCacheRadiusSquared)
+                if (chunk == _sampling
+                    || DistanceSquared(chunk, local) <= _sampleCacheRadiusSquared
+                    || DistanceSquared(chunk, ahead) <= _sampleCacheRadiusSquared)
                 {
                     continue;
                 }
@@ -503,7 +535,7 @@ namespace WinterOutbreak
                 _chunks.Remove(key);
             }
 
-            // Keep the per-collider classification caches bounded on longer routes.
+            // Keep the per-collider classification caches bounded on longer routes
             if (_rockSupports.Count > 4096)
             {
                 _rockSupports.Clear();
@@ -544,7 +576,7 @@ namespace WinterOutbreak
                 _supportRenderers.Clear();
             }
 
-            // Both caches depend only on static geometry, so clearing them never changes a later sample.
+            // Both caches depend only on static geometry, so clearing them never changes a later sample
             if (_surfaceTops.Count > ReferenceCacheLimit || _groundReferences.Count > ReferenceCacheLimit)
             {
                 _surfaceTops.Clear();
@@ -554,7 +586,7 @@ namespace WinterOutbreak
 
         private void InvalidateSampleHalo(Vector2Int key)
         {
-            // Each sampled chunk reads into its neighbors. The cache margin keeps all live halos inside it.
+            // Each sampled chunk reads into its neighbors
             for (int z = key.y - 1; z <= key.y + 1; z++)
             {
                 for (int x = key.x - 1; x <= key.x + 1; x++)
@@ -573,15 +605,18 @@ namespace WinterOutbreak
         internal bool HasFootstepSnow(Vector3 position)
         {
             Vector3 local = position - _origin;
-            return TryGetRaisedFootSupport(local, out _, out _) || (TryGetSnowHeights(local, out float ground, out float top) && local.y >= ground - 0.15f
-                && local.y <= ground + 0.2f && top - ground > 0.002f);
+            return TryGetRaisedFootSupport(local, out _, out _)
+                || (TryGetSnowHeights(local, out float ground, out float top)
+                    && local.y >= ground - 0.15f && local.y <= ground + 0.2f
+                    && top - ground > 0.002f);
         }
 
         public bool TryGetDepth(Vector3 feetPosition, out float depth)
         {
             depth = 0f;
             Vector3 local = feetPosition - _origin;
-            if (!TryGetSnowHeights(local, out float ground, out float top) || local.y < ground - 0.15f || local.y > top + 0.35f)
+            if (!TryGetSnowHeights(local, out float ground, out float top)
+                || local.y < ground - 0.15f || local.y > top + 0.35f)
             {
                 return false;
             }
@@ -591,8 +626,7 @@ namespace WinterOutbreak
         }
 
         /// <summary>
-        /// Undisturbed ground snow at a point: the world height of the ground under it and the snow depth there. Prints
-        /// and hollows are not included.
+        /// Undisturbed ground snow at a point
         /// </summary>
         public bool TryGetGroundSnow(Vector3 position, out float ground, out float depth)
         {
@@ -633,7 +667,8 @@ namespace WinterOutbreak
             float a = CellVertexHeight(column, chunk.Corners[corner], chunk.Depth, 0.5f, 0.5f, x, z);
             float b = CellVertexHeight(column, chunk.Corners[corner + CornerWidth], chunk.Depth, 0.5f, -0.5f, x, z + 1);
             float c = CellVertexHeight(column, chunk.Corners[corner + 1], chunk.Depth, -0.5f, 0.5f, x + 1, z);
-            float d = CellVertexHeight(column, chunk.Corners[corner + CornerWidth + 1], chunk.Depth, -0.5f, -0.5f, x + 1, z + 1);
+            float d = CellVertexHeight(column, chunk.Corners[corner + CornerWidth + 1], chunk.Depth, -0.5f, -0.5f,
+                x + 1, z + 1);
             top = InterpolateHeight(a, b, c, d, u, v);
             if (TryGetGroundTransition(chunk, corner, column, new Vector4(a, b, c, d), out var transition))
             {
@@ -708,13 +743,39 @@ namespace WinterOutbreak
             return found ? GetOrCreateChunk(bestKey) : null;
         }
 
-        private static float StreamPriority(Vector2 offset, Vector3 direction, float lead)
+        // The strip along the player's route still comes before both
+        private const float BehindViewPenalty = 24f * 24f;
+        private const float PrintViewLead = 16f;
+        private Vector3 _viewDirection;
+
+        private void UpdateViewDirection()
+        {
+            var camera = Camera.main;
+            if (camera == null)
+            {
+                _viewDirection = Vector3.zero;
+                return;
+            }
+
+            Vector3 forward = camera.transform.forward;
+            forward.y = 0f;
+            _viewDirection = forward.sqrMagnitude > 0.0001f ? forward.normalized : Vector3.zero;
+        }
+
+        private float StreamPriority(Vector2 offset, Vector3 direction, float lead)
         {
             float distance = offset.sqrMagnitude;
             const float immediateSquared = ImmediateRadius * ImmediateRadius;
-            if (lead < ImmediateRadius || distance <= immediateSquared)
+            if (distance <= immediateSquared)
             {
                 return distance;
+            }
+
+            float facing = offset.x * _viewDirection.x + offset.y * _viewDirection.z;
+            float behind = facing < 0f ? BehindViewPenalty : 0f;
+            if (lead < ImmediateRadius)
+            {
+                return distance + behind;
             }
 
             float forward = offset.x * direction.x + offset.y * direction.z;
@@ -724,9 +785,9 @@ namespace WinterOutbreak
                 return immediateSquared + distance;
             }
 
-            // Finish the strip ahead before spending time on the rest of the streaming radius.
+            // Finish the strip ahead before spending time on the rest of the streaming radius
             const float routePriorityLimit = MaxRouteLead * MaxRouteLead + RouteHalfWidth * RouteHalfWidth;
-            return immediateSquared + routePriorityLimit + distance;
+            return immediateSquared + routePriorityLimit + distance + behind;
         }
 
         private static float DistanceSquared(Chunk chunk, Vector3 local)
@@ -776,7 +837,7 @@ namespace WinterOutbreak
                 return column;
             }
 
-            // The snow surface rests on the filled ground. Shelter, drift sources and raised caps keep the sample.
+            // The snow surface rests on the filled ground
             if (column.HasGround)
             {
                 float ground = GetSurfaceGround(x, z, ref column);
@@ -789,8 +850,7 @@ namespace WinterOutbreak
 
             if (column.Exposed)
             {
-                // Bunker stairwells and trenches keep the game's own winter shading. The stored sample stays open, so
-                // the bunker's doorway drift still finds its opening there.
+                // Bunker stairwells and trenches keep the game's own winter shading
                 if (!column.Sheltered && IsTrenchHidden(x, z, column))
                 {
                     column.Exposed = false;
@@ -808,12 +868,14 @@ namespace WinterOutbreak
                     column.DoorDriftWeight = drift;
                 }
 
-                // A sheltered floor without drift shows the exposed roof or deck above it instead.
-                return column.Exposed || !column.HasUpperLevel || !UpperLevelShared(x, z, column.UpperHeight) ? column : UpperLevel(column);
+                // A sheltered floor without drift shows the exposed roof or deck above it instead
+                return column.Exposed || !column.HasUpperLevel || !UpperLevelShared(x, z, column.UpperHeight)
+                    ? column : UpperLevel(column);
             }
 
-            // Only close narrow gaps bracketed by compatible, directly sampled ground.
-            if (TryBridgeAlongAxis(x, z, 1, 0, column, out var bridge) || TryBridgeAlongAxis(x, z, 0, 1, column, out bridge))
+            // Only close narrow gaps bracketed by compatible, directly sampled ground
+            if (TryBridgeAlongAxis(x, z, 1, 0, column, out var bridge)
+                || TryBridgeAlongAxis(x, z, 0, 1, column, out bridge))
             {
                 return bridge;
             }
@@ -822,7 +884,7 @@ namespace WinterOutbreak
         }
 
         // A floor sample well below nearly all of its neighbors fell through a gap, such as the space between two stair
-        // treads. Snow bridges it at the neighbors' height instead of dropping a pit into the surface.
+        // treads
         private float GetSurfaceGround(int x, int z, ref Column copy)
         {
             if (copy.SurfaceGroundResolved)
@@ -856,8 +918,7 @@ namespace WinterOutbreak
 
                     grounded++;
 
-                    // Only a tread or curb height counts. A neighbor whose sample is a roof or an upper floor is
-                    // another level, not the rim of a gap.
+                    // Only a tread or curb height counts
                     float rise = neighborGround - own;
                     if (rise > PitDepth && rise <= MaxPitDepth)
                     {
@@ -866,7 +927,7 @@ namespace WinterOutbreak
                     }
                     else if (rise > MaxPitDepth && rise <= MaxGapDepth)
                     {
-                        // A drain slot or the gap beside a planter: the sample fell metres to something below.
+                        // A drain slot or the gap beside a planter: the sample fell metres to something below
                         deep += neighborGround;
                         deepCount++;
                         deepLow = Mathf.Min(deepLow, neighborGround);
@@ -875,10 +936,10 @@ namespace WinterOutbreak
                 }
             }
 
-            // The lake ice is flat. A cell on a measured flight already lies on the flight's slope
-            // (VoxelStairFlights.cs).
+            // The lake ice is flat
             bool stairOwned = GetColumn(x, z).StairOwned;
-            bool noStairShaping = FrozenIce.IsIceTop(_origin.x + (x + 0.5f) * CellWidth, _origin.z + (z + 0.5f) * CellWidth, _origin.y + own) || stairOwned;
+            bool noStairShaping = FrozenIce.IsIceTop(_origin.x + (x + 0.5f) * CellWidth, _origin.z + (z + 0.5f) * CellWidth, _origin.y + own)
+                || stairOwned;
             float stairGround = own;
             Vector3 stairNormal = Vector3.up;
             bool probed = !noStairShaping && TryProbeStairs(x, z, own, out stairGround, out stairNormal);
@@ -893,15 +954,15 @@ namespace WinterOutbreak
             }
             else
             {
-                // Flight cells take no pit or deep-gap fill either.
+                // Flight cells take no pit or deep-gap fill either
                 column.PitFilled = !stairOwned && grounded >= 7 && higherCount >= 6;
                 column.ShapeKind = column.PitFilled ? ShapePit : ShapeNone;
                 column.SurfaceGround = column.PitFilled ? higher / higherCount : own;
                 column.SurfaceNormal = Vector3.up;
 
-                // A deep, narrow gap is bridged at the level of the ground around it, when that ground agrees. Only for
-                // samples that fell below the local street level, not for street cells between platforms.
-                if (!column.PitFilled && !stairOwned && grounded >= 7 && deepCount >= 3 && deepCount + higherCount >= 6 && deepHigh - deepLow <= 0.30f
+                // A deep, narrow gap is bridged at the level of the ground around it, when that ground agrees
+                if (!column.PitFilled && !stairOwned && grounded >= 7 && deepCount >= 3 && deepCount + higherCount >= 6
+                    && deepHigh - deepLow <= 0.30f
                     && _origin.y + own < GetGroundReference(GroundPoint(x, z, 0f)) - DeepFall)
                 {
                     column.PitFilled = true;
@@ -909,7 +970,7 @@ namespace WinterOutbreak
                     column.ShapeKind = ShapeDeepGap;
                 }
 
-                // A sample reshaped from its line of neighbors (a narrow strip or a fall-through gap) moves too.
+                // A sample reshaped from its line of neighbors (a narrow strip or a fall-through gap) moves too
                 if (!column.PitFilled && column.BaseShaped)
                 {
                     column.PitFilled = true;
@@ -925,13 +986,7 @@ namespace WinterOutbreak
             return column.SurfaceGround;
         }
 
-        // The ground a cell's surface starts from, before pit filling and the stair fit. A raw sample is reshaped from
-        // the line of cells through it:
-        // - A strip at most 0.75 m wide standing 0.5 m or more above real ground on both sides, such as a wagon
-        //   underframe beam or the top of a railing, is lowered to that ground. Large architecture otherwise made it a
-        //   row of floating snow plates.
-        // - A gap at most 0.75 m wide between two higher samples, such as the street seen between the thin treads of an
-        //   open staircase, is raised to the line between them.
+        // The ground a cell's surface starts from, before pit filling and the stair fit
         private bool TryGetBaseGround(int x, int z, out float height)
         {
             Chunk owner = GetChunk(x, z);
@@ -951,13 +1006,10 @@ namespace WinterOutbreak
             if (!column.BaseGroundResolved)
             {
                 float own = column.GroundHeight;
-                // A strip narrow along a grid axis is lowered. One narrow only diagonally (a wagon beam at an angle) is
-                // lowered only when its same-height neighbours along the axes are strips too. Otherwise it is the
-                // corner of something wide, such as a wall end or a building's base, and lowering it alone tore the
-                // snow into a flap. Frozen lake ice is flat: no ridges or gaps to shape.
+                // A strip narrow along a grid axis is lowered
                 bool onIce = FrozenIce.IsIceTop(_origin.x + (x + 0.5f) * CellWidth, _origin.z + (z + 0.5f) * CellWidth, _origin.y + own);
 
-                // Gap filling still moved some of them toward the walls beside narrow stairs.
+                // Gap filling still moved some of them toward the walls beside narrow stairs
                 if (column.StairOwned)
                 {
                     column.BaseShaped = false;
@@ -969,12 +1021,13 @@ namespace WinterOutbreak
                 }
 
                 float ground = own;
-                bool ridge = !onIce && (TryLowerSpike(x, z, own, out ground) || TryLowerRidge(x, z, own, out ground, true)
-                                                                             || (TryLowerRidge(x, z, own, out ground, false) && DiagonalRidgeIsStrip(x, z, own)));
+                bool ridge = !onIce && (TryLowerSpike(x, z, own, out ground)
+                    || TryLowerRidge(x, z, own, out ground, true)
+                    || (TryLowerRidge(x, z, own, out ground, false) && DiagonalRidgeIsStrip(x, z, own)));
                 bool shaped = ridge || (!onIce ? TryFillValley(x, z, own, out ground) : TryFillDeckGap(x, z, own, out ground));
                 if (onIce && shaped)
                 {
-                    // A filled plank gap is part of the deck now, so its corners keep the deck rule.
+                    // A filled plank gap is part of the deck now, so its corners keep the deck rule
                     column.OnTerrain = false;
                 }
 
@@ -989,8 +1042,7 @@ namespace WinterOutbreak
         }
 
         // A single cell standing 0.3-1.5 m above every neighbour on its level, such as a wall plinth ledge taken as
-        // ground beside a barracks door, pulled the snow up into a standing sheet. It is lowered to the average of its
-        // neighbours. Neighbours more than 1.5 m above are another level (a roof edge) and do not count either way.
+        // ground beside a barracks door, pulled the snow up into a standing sheet
         private bool TryLowerSpike(int x, int z, float own, out float ground)
         {
             ground = own;
@@ -1018,7 +1070,7 @@ namespace WinterOutbreak
                         continue;
                     }
 
-                    // One neighbour on the same level is allowed: a ledge two cells wide.
+                    // One neighbour on the same level is allowed: a ledge two cells wide
                     if (Mathf.Abs(drop) < 0.3f && level == 0)
                     {
                         level++;
@@ -1035,7 +1087,7 @@ namespace WinterOutbreak
                 }
             }
 
-            // Four is enough: beside a door the other neighbours are often the roof edge or unsampled.
+            // Four is enough
             if (lower < 4)
             {
                 return false;
@@ -1052,7 +1104,10 @@ namespace WinterOutbreak
             return column.Sampled && column.HasGround;
         }
 
-        private static readonly Vector2Int[] RidgeAxes = { new Vector2Int(1, 0), new Vector2Int(0, 1), new Vector2Int(1, 1), new Vector2Int(1, -1) };
+        private static readonly Vector2Int[] RidgeAxes =
+        {
+            new Vector2Int(1, 0), new Vector2Int(0, 1), new Vector2Int(1, 1), new Vector2Int(1, -1)
+        };
 
         private bool DiagonalRidgeIsStrip(int x, int z, float own)
         {
@@ -1060,7 +1115,8 @@ namespace WinterOutbreak
             {
                 int nx = x + (i == 0 ? 1 : i == 1 ? -1 : 0);
                 int nz = z + (i == 2 ? 1 : i == 3 ? -1 : 0);
-                if (TryGetRawGround(nx, nz, out float neighbor) && Mathf.Abs(neighbor - own) <= RidgeTolerance && !TryLowerRidge(nx, nz, neighbor, out _, false))
+                if (TryGetRawGround(nx, nz, out float neighbor) && Mathf.Abs(neighbor - own) <= RidgeTolerance
+                    && !TryLowerRidge(nx, nz, neighbor, out _, false))
                 {
                     return false;
                 }
@@ -1086,9 +1142,10 @@ namespace WinterOutbreak
                     continue;
                 }
 
-                // The low side must be real ground, not the gap between two stair treads.
+                // The low side must be real ground, not the gap between two stair treads
                 int width = k1 + k2 - 1;
-                if (width > ShapeWalk || width >= narrowest || TryFillValley(x1, z1, h1, out _) || TryFillValley(x2, z2, h2, out _))
+                if (width > ShapeWalk || width >= narrowest
+                    || TryFillValley(x1, z1, h1, out _) || TryFillValley(x2, z2, h2, out _))
                 {
                     continue;
                 }
@@ -1100,7 +1157,8 @@ namespace WinterOutbreak
             return narrowest != int.MaxValue;
         }
 
-        private bool TryFindRidgeEnd(int x, int z, int dx, int dz, float own, out int steps, out float end, out int endX, out int endZ)
+        private bool TryFindRidgeEnd(int x, int z, int dx, int dz, float own, out int steps, out float end,
+            out int endX, out int endZ)
         {
             for (steps = 1; steps <= ShapeWalk; steps++)
             {
@@ -1113,7 +1171,7 @@ namespace WinterOutbreak
 
                 if (Mathf.Abs(end - own) > RidgeTolerance)
                 {
-                    // Lower only onto nearby ground, never into a void beside a landing.
+                    // Lower only onto nearby ground, never into a void beside a landing
                     return own - end >= RidgeDrop && own - end <= RidgeMaxDrop;
                 }
             }
@@ -1128,15 +1186,14 @@ namespace WinterOutbreak
             ground = own;
             int narrowest = int.MaxValue;
 
-            // Terrain at the foot of a floor raised off the ground is real ground, not a fall-through gap. Filling it
-            // toward the floor of the Woods swamp and sawmill trailers (1 m up, under their roofs) hung slanted sheets
-            // of snow under them. Stairs climbing under a roof are not terrain and still fill.
+            // Terrain at the foot of a floor raised off the ground is real ground, not a fall-through gap
             bool onTerrain = GetColumn(x, z).OnTerrain;
             for (int axis = 0; axis < 2; axis++)
             {
                 int dx = axis == 0 ? 1 : 0;
                 int dz = 1 - dx;
-                if (!TryFindValleyEnd(x, z, dx, dz, own, out int k1, out float h1) || !TryFindValleyEnd(x, z, -dx, -dz, own, out int k2, out float h2))
+                if (!TryFindValleyEnd(x, z, dx, dz, own, out int k1, out float h1)
+                    || !TryFindValleyEnd(x, z, -dx, -dz, own, out int k2, out float h2))
                 {
                     continue;
                 }
@@ -1153,7 +1210,7 @@ namespace WinterOutbreak
                 }
 
                 // The top treads of the long Sandbox stairs returned only the street over five rows, and their snow
-                // ended in an overhanging slab.
+                // ended in an overhanging slab
                 if (width > ShapeWalk)
                 {
                     float spread = Mathf.Abs(h1 - h2);
@@ -1167,8 +1224,7 @@ namespace WinterOutbreak
                     continue;
                 }
 
-                // Deeper gaps are filled only on stairs: the two sides differ in height, no steeper than stairs. Two
-                // beams of a wagon underframe stand at the same height and keep the ground between them.
+                // Deeper gaps are filled only on stairs: the two sides differ in height, no steeper than stairs
                 bool shallow = h1 - own <= MaxValleyRise && h2 - own <= MaxValleyRise;
                 bool stairLike = Mathf.Abs(h1 - h2) >= 0.10f && Mathf.Abs(h1 - h2) / ((k1 + k2) * CellWidth) <= 1f;
                 if (!shallow && !stairLike)
@@ -1183,9 +1239,7 @@ namespace WinterOutbreak
             return narrowest != int.MaxValue;
         }
 
-        // A gap of one or two cells between planks of a pier deck over the frozen lake or sea: the sample fell through
-        // to the ice, and the deck snow dropped 30-50 cm into every gap. Snow bridges it at deck height when both sides
-        // are deck at the same height. Wider holes, such as missing planks, and the ice beside a pier stay open.
+        // A gap of one or two cells between planks of a pier deck over the frozen lake or sea
         private bool TryFillDeckGap(int x, int z, float own, out float ground)
         {
             const int maxWidth = 2;
@@ -1196,8 +1250,9 @@ namespace WinterOutbreak
             {
                 int dx = axis == 0 ? 1 : 0;
                 int dz = 1 - dx;
-                if (!TryFindDeckSide(x, z, dx, dz, own, out int k1, out float h1) || !TryFindDeckSide(x, z, -dx, -dz, own, out int k2, out float h2) || k1 + k2 - 1 > maxWidth
-                    || Mathf.Abs(h1 - h2) > deckTolerance)
+                if (!TryFindDeckSide(x, z, dx, dz, own, out int k1, out float h1)
+                    || !TryFindDeckSide(x, z, -dx, -dz, own, out int k2, out float h2)
+                    || k1 + k2 - 1 > maxWidth || Mathf.Abs(h1 - h2) > deckTolerance)
                 {
                     continue;
                 }
@@ -1227,7 +1282,8 @@ namespace WinterOutbreak
                 float rise = side - own;
                 if (rise > PitDepth)
                 {
-                    return rise <= 0.60f && FrozenIce.IsLakeDeck(_origin.x + (sideX + 0.5f) * CellWidth, _origin.z + (sideZ + 0.5f) * CellWidth, _origin.y + side);
+                    return rise <= 0.60f && FrozenIce.IsLakeDeck(_origin.x + (sideX + 0.5f) * CellWidth,
+                        _origin.z + (sideZ + 0.5f) * CellWidth, _origin.y + side);
                 }
             }
 
@@ -1236,8 +1292,7 @@ namespace WinterOutbreak
         }
 
         // A "valley" whose one side is terrain barely higher than the cell and whose other side is a non-terrain floor
-        // well above it is the foot of a room on wheels or stilts, which snow does not fill up to. Bridges have no roof
-        // and the ice is left out.
+        // well above it is the foot of a room on wheels or stilts, which snow does not fill up to
         private bool IsFootOfRaisedFloor(int ax, int az, float ha, int bx, int bz, float hb, float own)
         {
             const float footRise = 0.25f;
@@ -1255,7 +1310,9 @@ namespace WinterOutbreak
             }
 
             Column floor = GetColumn(highX, highZ);
-            return !floor.OnTerrain && !FrozenIce.IsIceTop(_origin.x + (highX + 0.5f) * CellWidth, _origin.z + (highZ + 0.5f) * CellWidth, _origin.y + high);
+            return !floor.OnTerrain
+                && !FrozenIce.IsIceTop(_origin.x + (highX + 0.5f) * CellWidth, _origin.z + (highZ + 0.5f) * CellWidth,
+                    _origin.y + high);
         }
 
         private bool TryFindValleyEnd(int x, int z, int dx, int dz, float own, out int steps, out float end)
@@ -1278,9 +1335,7 @@ namespace WinterOutbreak
             return false;
         }
 
-        // A staircase sampled on a 25 cm grid lands each cell on a different tread, so every cell became its own plate.
-        // Where the cells within 0.5 m form three or more steps on a steady incline, the snow surface follows one plane
-        // laid through the step edges instead.
+        // A staircase sampled on a 25 cm grid lands each cell on a different tread, so every cell became its own plate
         private bool TryFitStairs(int x, int z, float own, out float ground, out Vector3 normal)
         {
             ground = own;
@@ -1320,7 +1375,7 @@ namespace WinterOutbreak
                 return false;
             }
 
-            // Least squares for h = a + b * dx + c * dz.
+            // Least squares for h = a + b * dx + c * dz
             double m00 = n, m01 = sx, m02 = sz, m11 = sxx, m12 = sxz, m22 = szz;
             double det = m00 * (m11 * m22 - m12 * m12) - m01 * (m01 * m22 - m12 * m02) + m02 * (m01 * m12 - m11 * m02);
             if (System.Math.Abs(det) < 1e-6)
@@ -1360,7 +1415,7 @@ namespace WinterOutbreak
                 }
             }
 
-            // A smooth ramp has almost no residual and already renders well. Stairs leave a sawtooth.
+            // A smooth ramp has almost no residual and already renders well
             double rms = System.Math.Sqrt(squares / n);
             if (rms < 0.025 || rms > 0.12)
             {
@@ -1374,8 +1429,7 @@ namespace WinterOutbreak
 
         private readonly float[] _stairHeights = new float[(2 * StairReach + 1) * (2 * StairReach + 1)];
 
-        // Stairs have flat treads: heights cluster into three or more levels of at least two cells, each level within 4
-        // cm, with risers of 8 to 26 cm between them. Rubble, rocks and planter edges do not.
+        // Stairs have flat treads
         private bool HasEvenTreads(int count)
         {
             System.Array.Sort(_stairHeights, 0, count);
@@ -1440,7 +1494,8 @@ namespace WinterOutbreak
             return false;
         }
 
-        private static (int X, int Z, float Distance)[] BuildSurfaceOffsets(int cells, float radius, float centerOffset, float denseRadius = float.PositiveInfinity)
+        private static (int X, int Z, float Distance)[] BuildSurfaceOffsets(int cells, float radius,
+            float centerOffset, float denseRadius = float.PositiveInfinity)
         {
             var offsets = new List<(int X, int Z, float Distance)>();
             for (int z = -cells; z <= cells; z++)
@@ -1500,11 +1555,12 @@ namespace WinterOutbreak
 
         private bool SampleChunk(Chunk chunk, bool preparing)
         {
-            // Sample beyond the chunk so the surface and feathering match across its borders.
+            // Sample beyond the chunk so the surface and feathering match across its borders
             int budget = preparing ? CountdownSampleBudget : SampleBudget;
             int remaining = budget;
             double seconds = preparing ? CountdownSampleSeconds : SampleSeconds;
-            long deadline = Stopwatch.GetTimestamp() + (long)(Stopwatch.Frequency * seconds);
+            long deadline = System.Math.Min(FrameShare(SamplingShare),
+                Stopwatch.GetTimestamp() + (long)(Stopwatch.Frequency * seconds));
             for (; chunk.NextSample < _samplesPerChunk && remaining > 0; chunk.NextSample++)
             {
                 int x = chunk.X + chunk.NextSample % _samplingWidth - _samplePadding;
@@ -1536,11 +1592,12 @@ namespace WinterOutbreak
 
         private Column SampleColumnCore(Vector3 position)
         {
-            // position.y is ignored.
+            // position.y is ignored
             _hasNarrowArchitecture = false;
             _hasRejectedTop = false;
             const QueryTriggerInteraction triggers = QueryTriggerInteraction.Ignore;
-            bool hasTerrain = Physics.Raycast(new Vector3(position.x, _origin.y + SweepTop, position.z), Vector3.down, out var terrain, SweepLength, _terrainMask, triggers);
+            bool hasTerrain = Physics.Raycast(new Vector3(position.x, _origin.y + SweepTop, position.z), Vector3.down,
+                out var terrain, SweepLength, _terrainMask, triggers);
             bool onLake = FrozenIce.RaiseTerrain(position, ref terrain, ref hasTerrain);
 
             const float rampReach = 4f;
@@ -1556,10 +1613,7 @@ namespace WinterOutbreak
                 {
                     if (!TryFindColumnTop(position, out var own))
                     {
-                        return new Column
-                        {
-                            Sampled = true
-                        };
+                        return new Column { Sampled = true };
                     }
 
                     reference = own.point.y;
@@ -1571,39 +1625,38 @@ namespace WinterOutbreak
             float reach = rampReach + below;
             Collider obstruction = null;
 
-            // One ownership rule on every map: the highest surface in the window that the ground layer owns. Surfaces
-            // it does not own stay with the raised layer, and the search continues beneath them.
+            // One ownership rule on every map
             bool hasGround = TrySelectGround(origin, reach, reference, ref obstruction, out var ground, _solidMask);
 
-            // The first solid hit and the first rejected surface of the detailed search, for the bunker trench test.
+            // The first solid hit and the first rejected surface of the detailed search, for the bunker trench test
             Collider firstSolid = _firstSolidHit;
             Collider firstRejected = _firstRejectedHit;
 
             if (hasTerrain && (!hasGround || ground.normal.y < 0.55f || ground.point.y < terrain.point.y
-                               || (ground.collider != terrain.collider && (IsDustOnly(ground.collider) || IsRock(ground.collider)))))
+                || (ground.collider != terrain.collider && (IsDustOnly(ground.collider) || IsRock(ground.collider)))))
             {
                 ground = terrain;
                 hasGround = true;
             }
-            else if (onLake && ground.collider != terrain.collider && ground.point.y - terrain.point.y <= FrozenIce.FrozenInRise)
+            else if (onLake && ground.collider != terrain.collider
+                && ground.point.y - terrain.point.y <= FrozenIce.FrozenInRise)
             {
-                // A log, boat rim or board lying in the lake ice is part of the flat ice (FrozenLake.cs).
+                // A log, boat rim or board lying in the lake ice is part of the flat ice (FrozenLake.cs)
                 ground = terrain;
             }
             else if (!hasTerrain && hasGround)
             {
-                // EFT's detailed (ballistic) colliders have holes: thin or missing stair treads, gaps in raised decks.
-                // When that layer holds an owned floor clearly above the detailed one, snow lies on it. The sweep can
-                // only return a floor that high if the layer has a surface that high, so one short ray decides whether
-                // to run it. Most columns have nothing there and skip the ownership checks.
+                // EFT's detailed (ballistic) colliders have holes
                 bool hadNarrow = _hasNarrowArchitecture;
                 RaycastHit narrowHit = _narrowArchitecture;
                 Collider walkObstruction = null;
                 var walkOrigin = new Vector3(position.x, reference + rampReach, position.z);
                 float walkWindow = walkOrigin.y - (ground.point.y + LowPolyFloorLift);
-                if (walkWindow > 0f && Physics.Raycast(walkOrigin, Vector3.down, walkWindow, _fallbackGroundMask, triggers)
-                                    && TrySelectGroundUnnoted(walkOrigin, rampReach + below, reference, ref walkObstruction, out var walk, _fallbackGroundMask)
-                                    && walk.point.y > ground.point.y + LowPolyFloorLift && walk.normal.y >= WalkSurfaceMinNormal)
+                if (walkWindow > 0f
+                    && Physics.Raycast(walkOrigin, Vector3.down, walkWindow, _fallbackGroundMask, triggers)
+                    && TrySelectGroundUnnoted(walkOrigin, rampReach + below, reference, ref walkObstruction, out var walk,
+                        _fallbackGroundMask)
+                    && walk.point.y > ground.point.y + LowPolyFloorLift && walk.normal.y >= WalkSurfaceMinNormal)
                 {
                     ground = walk;
                 }
@@ -1619,8 +1672,9 @@ namespace WinterOutbreak
             }
 
             // The shared reference can sit too low for this column, for example on a street more than 2 m above a
-            // nearby sunken yard. Use the column's own top surface rather than caching a gap.
-            if (!hasTerrain && !hasGround && TryFindColumnTop(position, out var columnTop) && SupportRejection(columnTop, true, false) == null)
+            // nearby sunken yard
+            if (!hasTerrain && !hasGround && TryFindColumnTop(position, out var columnTop)
+                && SupportRejection(columnTop, true, false) == null)
             {
                 ground = columnTop;
                 hasGround = true;
@@ -1634,32 +1688,33 @@ namespace WinterOutbreak
 
             if (!hasGround)
             {
-                return new Column
-                {
-                    Sampled = true
-                };
+                return new Column { Sampled = true };
             }
 
-            // The ground layer can continue under low props, where solid geometry hides it.
+            // The ground layer can continue under low props, where solid geometry hides it
 
             bool sheltered = IsSheltered(ground.point + Vector3.up * 0.40f);
             byte shelterKind = _lastShelterKind;
             float coverRise = _lastCoverRise;
             bool hasUpper = false;
             RaycastHit upper = default;
-            if (!hasTerrain && sheltered && TryFindColumnTop(position, out upper) && upper.point.y > ground.point.y + UpperLevelRise
-                && upper.point.y <= ground.point.y + MaxUpperLevelRise && SupportRejection(upper, true, false) == null)
+            if (!hasTerrain && sheltered && TryFindColumnTop(position, out upper)
+                && upper.point.y > ground.point.y + UpperLevelRise
+                && upper.point.y <= ground.point.y + MaxUpperLevelRise
+                && SupportRejection(upper, true, false) == null)
             {
-                // Keep the sheltered floor for doorway drift, and remember the exposed level above it.
+                // Keep the sheltered floor for doorway drift, and remember the exposed level above it
                 hasUpper = !IsSheltered(upper.point + Vector3.up * 0.40f);
             }
 
-            // Remember the open roof here without showing it: the ground beside it and the raised cap on it then join
-            // where they meet (RoofFlush). The bunker keeps its doorway drift underneath.
+            // Remember the open roof here without showing it
             bool hasRoof = false;
             float roofHeight = 0f;
-            if (hasTerrain && sheltered && TryFindColumnTop(position, out var roof) && roof.point.y > ground.point.y + UpperLevelRise
-                && roof.point.y <= ground.point.y + MaxUpperLevelRise && roof.normal.y >= RoofJoinNormal && !IsShelteredUnnoted(roof.point + Vector3.up * 0.40f))
+            if (hasTerrain && sheltered && TryFindColumnTop(position, out var roof)
+                && roof.point.y > ground.point.y + UpperLevelRise
+                && roof.point.y <= ground.point.y + MaxRoofRise
+                && roof.normal.y >= RoofJoinNormal
+                && !IsShelteredUnnoted(roof.point + Vector3.up * 0.40f))
             {
                 hasRoof = true;
                 roofHeight = roof.point.y - _origin.y;
@@ -1667,7 +1722,8 @@ namespace WinterOutbreak
 
             bool hasTop = _hasRejectedTop && _rejectedTop.point.y > ground.point.y + 0.10f;
             bool bunkerPart = IsBunkerPart(ground.collider) || IsBunkerPart(firstSolid) || IsBunkerPart(firstRejected);
-            bool bunkerTrench = bunkerPart && !sheltered && (IsBunkerShell(ground.collider) || IsBunkerShell(firstSolid) || IsBunkerShell(firstRejected));
+            bool bunkerTrench = bunkerPart && !sheltered
+                && (IsBunkerShell(ground.collider) || IsBunkerShell(firstSolid) || IsBunkerShell(firstRejected));
             return new Column
             {
                 HasTop = hasTop,
@@ -1685,7 +1741,9 @@ namespace WinterOutbreak
                 Sheltered = sheltered,
                 Pavement = ground.collider != terrain.collider && IsGroundPavement(ground.collider),
                 OnTerrain = ground.collider == terrain.collider,
-                MoundStrength = !sheltered && obstruction != ground.collider ? GroundMoundStrength(obstruction, ground.point.y) : 0f,
+                MoundStrength = !sheltered && obstruction != ground.collider
+                    ? GroundMoundStrength(obstruction, ground.point.y)
+                    : 0f,
                 GroundHeight = ground.point.y - _origin.y,
                 Normal = ground.normal,
                 ShelterKind = shelterKind,
@@ -1706,8 +1764,7 @@ namespace WinterOutbreak
                     }
 
                     Column neighbour = GetColumn(x + dx, z + dz);
-                    bool level = neighbour.HasUpperLevel
-                        ? Mathf.Abs(neighbour.UpperHeight - height) < 0.15f
+                    bool level = neighbour.HasUpperLevel ? Mathf.Abs(neighbour.UpperHeight - height) < 0.15f
                         : neighbour.Exposed && Mathf.Abs(neighbour.GroundHeight - height) < 0.15f;
                     if (level)
                     {
@@ -1732,12 +1789,12 @@ namespace WinterOutbreak
             };
         }
 
-        // Lowest top surface near a column. On open ground it is the street or yard beside the column, so the existing
-        // search window picks the same floor a street-level player would have seen.
+        // Lowest top surface near a column
         private float GetGroundReference(Vector3 position)
         {
             const float spacing = ReferenceCells * CellWidth;
-            var key = new Vector2Int(Mathf.FloorToInt((position.x - _origin.x) / spacing), Mathf.FloorToInt((position.z - _origin.z) / spacing));
+            var key = new Vector2Int(Mathf.FloorToInt((position.x - _origin.x) / spacing),
+                Mathf.FloorToInt((position.z - _origin.z) / spacing));
             if (_groundReferences.TryGetValue(key, out float reference))
             {
                 return reference;
@@ -1761,8 +1818,7 @@ namespace WinterOutbreak
             return reference;
         }
 
-        // The lowest height shared by several nearby tops. A window well, drain or ramp mouth covers only a point or
-        // two and must not pull the search below the street that the doorways open onto.
+        // The lowest height shared by several nearby tops
         private float LowestSharedTop(int count)
         {
             System.Array.Sort(_referenceTops, 0, count);
@@ -1792,8 +1848,9 @@ namespace WinterOutbreak
 
             const float spacing = ReferenceCells * CellWidth;
             var point = new Vector3(_origin.x + (key.x + 0.5f) * spacing, 0f, _origin.z + (key.y + 0.5f) * spacing);
-            // Any solid top counts here, walkable or not. A steep roof only raises a value the minimum ignores.
-            top = TryFindTopSurface(point, _solidMask | _terrainMask, false, out var hit) || TryFindTopSurface(point, _fallbackGroundMask, false, out hit)
+            // Any solid top counts here, walkable or not
+            top = TryFindTopSurface(point, _solidMask | _terrainMask, false, out var hit)
+                || TryFindTopSurface(point, _fallbackGroundMask, false, out hit)
                 ? hit.point.y
                 : float.PositiveInfinity;
             _surfaceTops[key] = top;
@@ -1802,13 +1859,14 @@ namespace WinterOutbreak
 
         private bool TryFindColumnTop(Vector3 position, out RaycastHit top)
         {
-            return TryFindTopSurface(position, _solidMask, true, out top) || TryFindTopSurface(position, _fallbackGroundMask, true, out top);
+            return TryFindTopSurface(position, _solidMask, true, out top)
+                || TryFindTopSurface(position, _fallbackGroundMask, true, out top);
         }
 
         private bool TryFindTopSurface(Vector3 position, int mask, bool walkable, out RaycastHit top)
         {
             // Any other surface ends the sweep, so a steep curb, embankment or roof can never expose a garage or tunnel
-            // below it.
+            // below it
             var origin = new Vector3(position.x, _origin.y + SweepTop, position.z);
             float remaining = SweepLength;
             for (int i = 0; i < SweepHits && remaining > 0f; i++)
@@ -1821,7 +1879,7 @@ namespace WinterOutbreak
                 if ((hit.rigidbody == null || hit.rigidbody.isKinematic) && !IsGroundObstruction(hit.collider))
                 {
                     top = hit;
-                    // Rocks keep the game's own winter finish. They never become a column's floor or roof level.
+                    // Rocks keep the game's own winter finish
                     return !walkable || (hit.normal.y >= 0.55f && !IsRock(hit.collider) && !IsDustOnly(hit.collider));
                 }
 
@@ -1836,7 +1894,8 @@ namespace WinterOutbreak
 
         private float GroundMoundStrength(Collider obstacle, float floorHeight)
         {
-            if (obstacle == null || IsGroundPavement(obstacle) || IsDustOnly(obstacle) || (obstacle.attachedRigidbody != null && !obstacle.attachedRigidbody.isKinematic))
+            if (obstacle == null || IsGroundPavement(obstacle) || IsDustOnly(obstacle)
+                || (obstacle.attachedRigidbody != null && !obstacle.attachedRigidbody.isKinematic))
             {
                 return 0f;
             }
@@ -1848,12 +1907,14 @@ namespace WinterOutbreak
             }
 
             Bounds bounds = obstacle.bounds;
-            return GroundMoundStrength(bounds.size, bounds.min.y - floorHeight, bounds.max.y - floorHeight, kind == OutdoorPropKind.Clutter);
+            return GroundMoundStrength(bounds.size, bounds.min.y - floorHeight, bounds.max.y - floorHeight,
+                kind == OutdoorPropKind.Clutter);
         }
 
         private static float GroundMoundStrength(Vector3 size, float baseRise, float topRise, bool clutter)
         {
-            if (size.x > 4.5f || size.y > 2f || size.z > 4.5f || baseRise > 0.24f || topRise < 0.14f || topRise > (clutter ? 2.0f : 1.05f))
+            if (size.x > 4.5f || size.y > 2f || size.z > 4.5f || baseRise > 0.24f || topRise < 0.14f
+                || topRise > (clutter ? 2.0f : 1.05f))
             {
                 return 0f;
             }
@@ -1861,13 +1922,15 @@ namespace WinterOutbreak
             return Mathf.SmoothStep(0.42f, 1f, Mathf.InverseLerp(0.14f, 0.70f, topRise));
         }
 
-        private bool TrySelectGroundUnnoted(Vector3 origin, float reach, float reference, ref Collider obstruction, out RaycastHit ground, int mask)
+        private bool TrySelectGroundUnnoted(Vector3 origin, float reach, float reference, ref Collider obstruction,
+            out RaycastHit ground, int mask)
         {
             bool found = TrySelectGround(origin, reach, reference, ref obstruction, out ground, mask);
             return found;
         }
 
-        private bool TrySelectGround(Vector3 origin, float reach, float reference, ref Collider obstruction, out RaycastHit ground, int mask)
+        private bool TrySelectGround(Vector3 origin, float reach, float reference, ref Collider obstruction,
+            out RaycastHit ground, int mask)
         {
             RaycastHit clutterTop = default;
             bool hasClutterTop = false;
@@ -1888,7 +1951,7 @@ namespace WinterOutbreak
                 string rejection = GroundRejection(hit, reference, out string ownership);
                 if (rejection == null)
                 {
-                    // Snow rests on a tree grate or drain cover rather than falling through it to a void below.
+                    // Snow rests on a tree grate or drain cover rather than falling through it to a void below
                     if (hasClutterTop && hit.point.y < reference - DeepFall && clutterTop.point.y - hit.point.y > DeepFall)
                     {
                         hit = clutterTop;
@@ -1900,7 +1963,8 @@ namespace WinterOutbreak
                     return true;
                 }
 
-                if (!hasClutterTop && IsGroundObstruction(hit.collider) && hit.normal.y >= 0.55f && hit.point.y <= reference + GroundRise)
+                if (!hasClutterTop && IsGroundObstruction(hit.collider) && hit.normal.y >= 0.55f
+                    && hit.point.y <= reference + GroundRise)
                 {
                     clutterTop = hit;
                     hasClutterTop = true;
@@ -1911,7 +1975,7 @@ namespace WinterOutbreak
                     _firstRejectedHit = hit.collider;
                 }
 
-                // The first skipped object can still bank a low mound into the ground beside it.
+                // The first skipped object can still bank a low mound into the ground beside it
                 obstruction ??= hit.collider;
                 if (!_hasRejectedTop && !IsGroundObstruction(hit.collider) && hit.normal.y >= 0.85f)
                 {
@@ -1919,16 +1983,17 @@ namespace WinterOutbreak
                     _hasRejectedTop = true;
                 }
 
-                // Keep the first narrow part of large, visible architecture, such as a stair tread or a curb strip. It
-                // becomes the floor only when nothing else is found, instead of leaving a hole in the snow.
-                if (!_hasNarrowArchitecture && ((rejection.StartsWith("narrow", System.StringComparison.Ordinal) && IsLargeSupport(hit.collider)) || rejection == "small object")
-                                            && HasVisibleSupport(hit))
+                // Keep the first narrow part of large, visible architecture, such as a stair tread or a curb strip
+                if (!_hasNarrowArchitecture
+                    && ((rejection.StartsWith("narrow", System.StringComparison.Ordinal) && IsLargeSupport(hit.collider))
+                        || rejection == "small object")
+                    && HasVisibleSupport(hit))
                 {
                     _narrowArchitecture = hit;
                     _hasNarrowArchitecture = true;
                 }
 
-                // Re-cast just below the hit, so a lower level of the same collider is still reachable.
+                // Re-cast just below the hit, so a lower level of the same collider is still reachable
                 float step = hit.distance + SweepStep;
                 origin.y -= step;
                 reach -= step;
@@ -1938,7 +2003,7 @@ namespace WinterOutbreak
             return false;
         }
 
-        // Null when the ground layer owns the hit. Otherwise the reason it stays with the raised layer.
+        // Null when the ground layer owns the hit
         private string GroundRejection(RaycastHit hit, float reference, out string ownership)
         {
             ownership = null;
@@ -1955,8 +2020,7 @@ namespace WinterOutbreak
             float rise = hit.point.y - reference;
             if (hit.normal.y < 0.35f)
             {
-                // The ground continues beneath a leaning sign, crate side or shield. A wall or embankment face still
-                // ends the search, so the sweep cannot pass through architecture to a lower level.
+                // The ground continues beneath a leaning sign, crate side or shield
                 if (!IsLargeSupport(hit.collider))
                 {
                     return "steep side of a small object";
@@ -1985,7 +2049,8 @@ namespace WinterOutbreak
 
             bool flat = hit.normal.y >= FlatNormal;
             if (rise > (flat ? FlatGroundReach : RampGroundReach)
-                && !(flat && rise <= RampGroundReach && IsLargeSupport(hit.collider) && !IsWindowPart(hit.collider) && IsStairTread(hit)))
+                && !(flat && rise <= RampGroundReach && IsLargeSupport(hit.collider) && !IsWindowPart(hit.collider)
+                    && IsStairTread(hit)))
             {
                 return "above the ground window";
             }
@@ -1998,7 +2063,8 @@ namespace WinterOutbreak
             string rejection = SupportRejection(hit, rise > 0.55f, rise <= ShallowSupportRise);
             if (rejection == null)
             {
-                ownership = IsGroundPavement(hit.collider) && hit.normal.y >= 0.85f ? "mapped pavement" : flat ? "broad support" : "walkable ramp";
+                ownership = IsGroundPavement(hit.collider) && hit.normal.y >= 0.85f ? "mapped pavement"
+                    : flat ? "broad support" : "walkable ramp";
             }
 
             return rejection;
@@ -2006,7 +2072,7 @@ namespace WinterOutbreak
 
         private string SupportRejection(RaycastHit hit, bool raised, bool shallow)
         {
-            // Mapped pavement and broad ramps keep their earlier, verified acceptance.
+            // Mapped pavement and broad ramps keep their earlier, verified acceptance
             if (IsGroundPavement(hit.collider) && hit.normal.y >= 0.85f)
             {
                 return null;
@@ -2014,7 +2080,7 @@ namespace WinterOutbreak
 
             if (hit.normal.y < FlatNormal)
             {
-                // Planks of a lake deck tilt a little where they rest on logs; they stay part of the deck.
+                // Planks of a lake deck tilt a little where they rest on logs
                 if (!IsWalkableRamp(hit, raised) && !(hit.normal.y >= 0.90f && IsLakeDeckSupport(hit.collider)))
                 {
                     return "narrow or uneven incline";
@@ -2022,12 +2088,11 @@ namespace WinterOutbreak
             }
             else if (!IsBroadFlat(hit))
             {
-                // A narrow flat surface between a higher and a lower step is a stair tread, not a ledge or rail.
+                // A narrow flat surface between a higher and a lower step is a stair tread, not a ledge or rail
                 return IsStairTread(hit) && HasVisibleSupport(hit) ? null : "narrow support";
             }
 
-            // Low broad slabs and ramps are buried by the snow either way. Higher ones, flat or inclined, must be
-            // architecture the player sees, not a rubble pile, fence curtain or debris slab passing a plane test.
+            // Low broad slabs and ramps are buried by the snow either way
             if (shallow)
             {
                 return null;
@@ -2041,30 +2106,29 @@ namespace WinterOutbreak
             return HasVisibleSupport(hit) ? null : "no render geometry at the support";
         }
 
-        // A window frame or sill: its bars can pass the riser test, but a window is never a staircase.
+        // A window frame or sill
         private static bool IsWindowPart(Collider collider)
         {
             Transform parent = collider.transform.parent;
-            return ContainsIgnoreCase(collider.name, "window") || (parent != null && ContainsIgnoreCase(parent.name, "window"));
+            return ContainsIgnoreCase(collider.name, "window")
+                || (parent != null && ContainsIgnoreCase(parent.name, "window"));
         }
 
         private bool IsBroadFlat(RaycastHit hit)
         {
             return (FollowsSurface(hit, Vector3.right * BroadSpread) || FollowsSurface(hit, Vector3.left * BroadSpread))
-                   && (FollowsSurface(hit, Vector3.forward * BroadSpread) || FollowsSurface(hit, Vector3.back * BroadSpread));
+                && (FollowsSurface(hit, Vector3.forward * BroadSpread) || FollowsSurface(hit, Vector3.back * BroadSpread));
         }
 
         private RaycastHit _narrowArchitecture;
         private bool _hasNarrowArchitecture;
 
-        // The first surface the ground search passed over (not clutter): the visible top of the column when the ground
-        // itself lies below it, as under the Woods bunker stairs (VoxelStairFlights.cs).
+        // The first surface the ground search passed over (not clutter)
         private RaycastHit _rejectedTop;
         private bool _hasRejectedTop;
         private readonly Dictionary<Collider, bool> _softSurfaces = new Dictionary<Collider, bool>();
 
-        // Ballistic material names mark water and fabric. Neither holds a full snow layer above the ground. A thin flat
-        // surface with a solid floor within 6 cm under it.
+        // Ballistic material names mark water and fabric
         private bool IsLyingOnFloor(RaycastHit hit, out RaycastHit floor)
         {
             floor = default;
@@ -2074,8 +2138,8 @@ namespace WinterOutbreak
             }
 
             Vector3 below = hit.point - Vector3.up * 0.005f;
-            return Physics.Raycast(below, Vector3.down, out floor, 0.06f, _solidMask, QueryTriggerInteraction.Ignore) && floor.collider != hit.collider
-                                                                                                                      && !IsSoftSurface(floor.collider) && floor.normal.y >= 0.95f;
+            return Physics.Raycast(below, Vector3.down, out floor, 0.06f, _solidMask, QueryTriggerInteraction.Ignore)
+                && floor.collider != hit.collider && !IsSoftSurface(floor.collider) && floor.normal.y >= 0.95f;
         }
 
         private bool IsSoftSurface(Collider collider)
@@ -2083,15 +2147,15 @@ namespace WinterOutbreak
             if (!_softSurfaces.TryGetValue(collider, out bool soft))
             {
                 string name = collider.name;
-                soft = name.IndexOf("_BALLISTIC_Water", System.StringComparison.OrdinalIgnoreCase) >= 0 || name.IndexOf("fabric", System.StringComparison.OrdinalIgnoreCase) >= 0;
+                soft = name.IndexOf("_BALLISTIC_Water", System.StringComparison.OrdinalIgnoreCase) >= 0
+                    || name.IndexOf("fabric", System.StringComparison.OrdinalIgnoreCase) >= 0;
                 _softSurfaces.Add(collider, soft);
             }
 
             return soft;
         }
 
-        // A platform that reaches out over the frozen lake is a deck along its whole length. Decided per collider from
-        // its centre and four points around it, so the answer does not depend on which cell is sampled first.
+        // A platform that reaches out over the frozen lake is a deck along its whole length
         private readonly Dictionary<Collider, bool> _lakeDeckSupports = new Dictionary<Collider, bool>();
 
         private bool IsLakeDeckSupport(Collider collider)
@@ -2104,9 +2168,10 @@ namespace WinterOutbreak
             Bounds bounds = collider.bounds;
             Vector3 c = bounds.center;
             Vector3 e = bounds.extents * 0.5f;
-            deck = FrozenIce.IsLakeDeck(c.x, c.z, c.y) || FrozenIce.IsLakeDeck(c.x + e.x, c.z + e.z, c.y) || FrozenIce.IsLakeDeck(c.x - e.x, c.z + e.z, c.y)
-                   || FrozenIce.IsLakeDeck(c.x + e.x, c.z - e.z, c.y) || FrozenIce.IsLakeDeck(c.x - e.x, c.z - e.z, c.y);
-            // Only a yes is kept: a platform sampled before the lake has frozen asks again later.
+            deck = FrozenIce.IsLakeDeck(c.x, c.z, c.y)
+                || FrozenIce.IsLakeDeck(c.x + e.x, c.z + e.z, c.y) || FrozenIce.IsLakeDeck(c.x - e.x, c.z + e.z, c.y)
+                || FrozenIce.IsLakeDeck(c.x + e.x, c.z - e.z, c.y) || FrozenIce.IsLakeDeck(c.x - e.x, c.z - e.z, c.y);
+            // Only a yes is kept
             if (deck)
             {
                 _lakeDeckSupports.Add(collider, true);
@@ -2122,11 +2187,12 @@ namespace WinterOutbreak
                 return large;
             }
 
-            // Measure in the collider's own axes, so a parked car at 45 degrees still reads as 1.8 m wide.
+            // Measure in the collider's own axes, so a parked car at 45 degrees still reads as 1.8 m wide
             Vector3 size = collider switch
             {
                 BoxCollider box => Vector3.Scale(box.size, collider.transform.lossyScale),
-                MeshCollider mesh when mesh.sharedMesh != null => Vector3.Scale(mesh.sharedMesh.bounds.size, collider.transform.lossyScale),
+                MeshCollider mesh when mesh.sharedMesh != null
+                    => Vector3.Scale(mesh.sharedMesh.bounds.size, collider.transform.lossyScale),
                 _ => collider.bounds.size
             };
             float a = Mathf.Abs(size.x);
@@ -2148,7 +2214,7 @@ namespace WinterOutbreak
 
             if (renderers == null)
             {
-                // Map-scale architecture is not a proxy prop.
+                // Map-scale architecture is not a proxy prop
                 return true;
             }
 
@@ -2156,7 +2222,8 @@ namespace WinterOutbreak
             Vector3 point = hit.point;
             foreach (var bounds in renderers)
             {
-                if (point.x >= bounds.min.x - margin && point.x <= bounds.max.x + margin && point.z >= bounds.min.z - margin && point.z <= bounds.max.z + margin
+                if (point.x >= bounds.min.x - margin && point.x <= bounds.max.x + margin
+                    && point.z >= bounds.min.z - margin && point.z <= bounds.max.z + margin
                     && bounds.max.y >= point.y - margin)
                 {
                     return true;
@@ -2180,7 +2247,8 @@ namespace WinterOutbreak
                 for (int i = 0; i < _propNodes.Count; i++)
                 {
                     Transform node = _propNodes[i];
-                    if (node.TryGetComponent<MeshRenderer>(out var renderer) && renderer.enabled && renderer.gameObject.activeInHierarchy && renderer.bounds.Intersects(support))
+                    if (node.TryGetComponent<MeshRenderer>(out var renderer) && renderer.enabled
+                        && renderer.gameObject.activeInHierarchy && renderer.bounds.Intersects(support))
                     {
                         _supportBounds.Add(renderer.bounds);
                     }
@@ -2207,8 +2275,9 @@ namespace WinterOutbreak
 
         private bool IsWalkableRamp(RaycastHit hit, bool raisedAboveTerrain)
         {
-            if (hit.normal.y < 0.55f || hit.normal.y >= 0.995f || (hit.rigidbody != null && !hit.rigidbody.isKinematic) || IsRock(hit.collider) || IsDustOnly(hit.collider)
-                || IsGroundObstruction(hit.collider))
+            if (hit.normal.y < 0.55f || hit.normal.y >= 0.995f
+                || (hit.rigidbody != null && !hit.rigidbody.isKinematic)
+                || IsRock(hit.collider) || IsDustOnly(hit.collider) || IsGroundObstruction(hit.collider))
             {
                 return false;
             }
@@ -2220,12 +2289,17 @@ namespace WinterOutbreak
                 return false;
             }
 
-            // High up, a ramp must continue on both sides. A handrail or stair cheek wall only runs lengthwise.
-            bool acrossOk = raisedAboveTerrain ? FollowsSurface(hit, across) && FollowsSurface(hit, -across) : FollowsSurface(hit, across) || FollowsSurface(hit, -across);
+            // High up, a ramp must continue on both sides
+            bool acrossOk = raisedAboveTerrain
+                ? FollowsSurface(hit, across) && FollowsSurface(hit, -across)
+                : FollowsSurface(hit, across) || FollowsSurface(hit, -across);
             return acrossOk && (FollowsSurface(hit, downhill) || FollowsSurface(hit, -downhill));
         }
 
-        private static readonly Vector3[] StairAxes = { Vector3.right, Vector3.forward, new Vector3(1f, 0f, 1f).normalized, new Vector3(1f, 0f, -1f).normalized };
+        private static readonly Vector3[] StairAxes =
+        {
+            Vector3.right, Vector3.forward, new Vector3(1f, 0f, 1f).normalized, new Vector3(1f, 0f, -1f).normalized
+        };
 
         private bool IsStairTread(RaycastHit hit)
         {
@@ -2252,8 +2326,9 @@ namespace WinterOutbreak
                     return true;
                 }
 
-                // Only when the other side already shows a riser, look again nearer and farther.
-                bool partial = IsRiser(ahead - hit.point.y) || IsRiser(hit.point.y - ahead) || IsRiser(behind - hit.point.y) || IsRiser(hit.point.y - behind);
+                // Only when the other side already shows a riser, look again nearer and farther
+                bool partial = IsRiser(ahead - hit.point.y) || IsRiser(hit.point.y - ahead)
+                    || IsRiser(behind - hit.point.y) || IsRiser(hit.point.y - behind);
                 if (!partial)
                 {
                     continue;
@@ -2263,7 +2338,8 @@ namespace WinterOutbreak
                 {
                     float nearAhead = StepHeight(hit.point + across * distance);
                     float nearBehind = StepHeight(hit.point - across * distance);
-                    if (IsTreadBetween(hit.point.y, nearAhead, behind) || IsTreadBetween(hit.point.y, ahead, nearBehind) || IsTreadBetween(hit.point.y, nearAhead, nearBehind))
+                    if (IsTreadBetween(hit.point.y, nearAhead, behind) || IsTreadBetween(hit.point.y, ahead, nearBehind)
+                        || IsTreadBetween(hit.point.y, nearAhead, nearBehind))
                     {
                         return true;
                     }
@@ -2275,8 +2351,9 @@ namespace WinterOutbreak
 
         private float StepHeight(Vector3 point)
         {
-            return Physics.Raycast(point + Vector3.up * 0.40f, Vector3.down, out var step, 0.80f, _solidMask | _fallbackGroundMask, QueryTriggerInteraction.Ignore)
-                   && step.normal.y >= 0.94f && !IsGroundObstruction(step.collider)
+            return Physics.Raycast(point + Vector3.up * 0.40f, Vector3.down, out var step, 0.80f,
+                    _solidMask | _fallbackGroundMask, QueryTriggerInteraction.Ignore)
+                && step.normal.y >= 0.94f && !IsGroundObstruction(step.collider)
                 ? step.point.y
                 : float.NaN;
         }
@@ -2298,7 +2375,8 @@ namespace WinterOutbreak
             const float tolerance = 0.05f;
             float rise = -Vector3.Dot(seed.normal, offset) / seed.normal.y;
             Vector3 start = seed.point + offset + Vector3.up * (rise + tolerance);
-            if (!Physics.Raycast(start, Vector3.down, out var hit, tolerance * 2f, _solidMask | _fallbackGroundMask, QueryTriggerInteraction.Ignore))
+            if (!Physics.Raycast(start, Vector3.down, out var hit, tolerance * 2f,
+                _solidMask | _fallbackGroundMask, QueryTriggerInteraction.Ignore))
             {
                 return false;
             }
@@ -2308,7 +2386,7 @@ namespace WinterOutbreak
 
         internal const byte ShelterOpen = 0, ShelterIndoorVolume = 1, ShelterInterchangeVolume = 2, ShelterRoof = 3;
 
-        // The last IsSheltered call's decision, kept on the ground column for the automatic checks.
+        // The last IsSheltered call's decision, kept on the ground column for the automatic checks
         private byte _lastShelterKind;
         private float _lastCoverRise;
 
@@ -2328,8 +2406,7 @@ namespace WinterOutbreak
                 return ShelterResult("Interchange indoor volume", true);
             }
 
-            // Invisible blockers (vehicle and AI boundaries, trigger shells) left open road bare. Skip overhead hits
-            // with no rendered geometry at the hit point and keep looking above them.
+            // Invisible blockers (vehicle and AI boundaries, trigger shells) left open road bare
             RaycastHit overhead = default;
             bool covered = false;
             bool skipped = false;
@@ -2363,19 +2440,19 @@ namespace WinterOutbreak
             float rise = overhead.point.y - origin.y;
             _lastCoverRise = rise;
 
-            // EFT's indoor volumes can reach past a doorway or tunnel mouth. Trust one only under nearby cover; under a
-            // high bridge or canopy the roof checks below decide.
+            // EFT's indoor volumes can reach past a doorway or tunnel mouth
             if (!SuppressIndoorSnow && rise <= IndoorVolumeCeiling && SnowSurface.IsInIndoorVolume(origin))
             {
                 return ShelterResult("EFT indoor volume", true);
             }
 
-            if (IsOutdoorClutter(overhead.collider) || (!SuppressIndoorSnow && rise < 1.30f))
+            if (IsOutdoorClutter(overhead.collider)
+                || (!SuppressIndoorSnow && rise < 1.30f))
             {
                 return ShelterResult("outdoor clutter or low cover", false);
             }
 
-            // A single hit on a lamp head or beam should not create a bare strip beneath it.
+            // A single hit on a lamp head or beam should not create a bare strip beneath it
             if (!HasOverheadWidth(origin, rise))
             {
                 return ShelterResult("overhead hit lacks roof width", false);
@@ -2386,16 +2463,18 @@ namespace WinterOutbreak
                 return ShelterResult("Interchange roof fallback", true);
             }
 
-            // One open side can feed a drift. Opposite open sides indicate narrow overhead cover.
-            bool sheltered = !HasOpenSides(origin, ShelterDirections[0], ShelterDirections[1]) && !HasOpenSides(origin, ShelterDirections[2], ShelterDirections[3]);
+            // One open side can feed a drift
+            bool sheltered = !HasOpenSides(origin, ShelterDirections[0], ShelterDirections[1])
+                && !HasOpenSides(origin, ShelterDirections[2], ShelterDirections[3]);
             return ShelterResult(sheltered ? "broad roof blocks both axes" : "opposite sides open", sheltered);
         }
 
         private bool ShelterResult(string reason, bool sheltered)
         {
-            _lastShelterKind = !sheltered ? ShelterOpen :
-                reason == "EFT indoor volume" ? ShelterIndoorVolume :
-                reason == "Interchange indoor volume" ? ShelterInterchangeVolume : ShelterRoof;
+            _lastShelterKind = !sheltered ? ShelterOpen
+                : reason == "EFT indoor volume" ? ShelterIndoorVolume
+                : reason == "Interchange indoor volume" ? ShelterInterchangeVolume
+                : ShelterRoof;
 
             return sheltered;
         }
@@ -2403,26 +2482,33 @@ namespace WinterOutbreak
         private bool HasOverheadWidth(Vector3 origin, float height)
         {
             const float widthProbe = 0.65f;
-            return (HasNearbyOverhead(origin + Vector3.right * widthProbe, height) || HasNearbyOverhead(origin - Vector3.right * widthProbe, height))
-                   && (HasNearbyOverhead(origin + Vector3.forward * widthProbe, height) || HasNearbyOverhead(origin - Vector3.forward * widthProbe, height));
+            return (HasNearbyOverhead(origin + Vector3.right * widthProbe, height)
+                    || HasNearbyOverhead(origin - Vector3.right * widthProbe, height))
+                && (HasNearbyOverhead(origin + Vector3.forward * widthProbe, height)
+                    || HasNearbyOverhead(origin - Vector3.forward * widthProbe, height));
         }
 
         private bool HasNearbyOverhead(Vector3 origin, float height)
         {
             const float tolerance = 0.55f;
-            return Physics.Raycast(origin, Vector3.up, out var hit, height + tolerance, _doorMask, QueryTriggerInteraction.Ignore) && Mathf.Abs(hit.distance - height) <= tolerance
+            return Physics.Raycast(origin, Vector3.up, out var hit, height + tolerance, _doorMask,
+                QueryTriggerInteraction.Ignore) && Mathf.Abs(hit.distance - height) <= tolerance
                 && !IsOutdoorClutter(hit.collider);
         }
 
         private bool HasOpenSides(Vector3 origin, Vector3 first, Vector3 second)
         {
             const QueryTriggerInteraction triggers = QueryTriggerInteraction.Ignore;
-            return !Physics.Raycast(origin, first, 24f, _doorMask, triggers) && !Physics.Raycast(origin, second, 24f, _doorMask, triggers);
+            return !Physics.Raycast(origin, first, 24f, _doorMask, triggers)
+                && !Physics.Raycast(origin, second, 24f, _doorMask, triggers);
         }
 
         private static readonly Vector3[] ShelterDirections =
         {
-            new Vector3(1.2f, 1f, 0f).normalized, new Vector3(-1.2f, 1f, 0f).normalized, new Vector3(0f, 1f, 1.2f).normalized, new Vector3(0f, 1f, -1.2f).normalized
+            new Vector3(1.2f, 1f, 0f).normalized,
+            new Vector3(-1.2f, 1f, 0f).normalized,
+            new Vector3(0f, 1f, 1.2f).normalized,
+            new Vector3(0f, 1f, -1.2f).normalized
         };
 
         private void RebuildChunkCore(Chunk chunk, float depth)
@@ -2438,25 +2524,18 @@ namespace WinterOutbreak
 
             if (depth > 0f)
             {
-                long phase = Stopwatch.GetTimestamp();
                 bool hasFootprints = PrepareFootprints(chunk);
-                _rebuildPhases.Footprints = Stopwatch.GetTimestamp() - phase;
 
-                phase = Stopwatch.GetTimestamp();
                 BuildSurface(chunk, depth, hasFootprints);
-                _rebuildPhases.Surface = Stopwatch.GetTimestamp() - phase - _rebuildPhases.Corners;
-                _rebuildPhases.GroundVertices = _vertices.Count;
                 if (_prints != null)
                 {
-                    // Remaining ground vertices (split levels, transitions) may shade prints; raised caps may not.
+                    // Remaining ground vertices (split levels, transitions) may shade prints
                     PadPrintLimits(new Vector4(0f, depth * 0.95f, 0f, 0f));
                 }
 
                 if (chunk.RaisedReady)
                 {
-                    phase = Stopwatch.GetTimestamp();
                     AddRaisedSnow(chunk, depth);
-                    _rebuildPhases.Raised = Stopwatch.GetTimestamp() - phase;
                     chunk.RaisedRendered = chunk.RaisedSurfaces != null;
                 }
             }
@@ -2475,10 +2554,7 @@ namespace WinterOutbreak
 
             if (chunk.Mesh == null)
             {
-                chunk.Mesh = new Mesh
-                {
-                    name = "Winter Outbreak Voxel Snow Mesh"
-                };
+                chunk.Mesh = new Mesh { name = "Winter Outbreak Voxel Snow Mesh" };
                 chunk.Mesh.MarkDynamic();
                 chunk.Object = new GameObject("Winter Outbreak Voxel Snow Chunk");
                 chunk.Object.transform.position = _origin;
@@ -2490,14 +2566,13 @@ namespace WinterOutbreak
             }
             else if (_prints == null && chunk.RaisedSurfaces == null && depth - previousDepth >= 0.002f)
             {
-                // Ease the added thickness without lifting any separate rock or prop caps.
+                // Ease the added thickness without lifting any separate rock or prop caps
                 chunk.GrowthStarted = Time.time;
                 chunk.GrowthInset = chunk.GrowthOffset + (depth - previousDepth) * 0.9f;
                 chunk.GrowthOffset = chunk.GrowthInset;
                 chunk.Object.transform.position = _origin - Vector3.up * chunk.GrowthOffset;
             }
 
-            long upload = Stopwatch.GetTimestamp();
             chunk.Mesh.Clear();
             IndexFormat format = _vertices.Count > ushort.MaxValue ? IndexFormat.UInt32 : IndexFormat.UInt16;
             if (chunk.Mesh.indexFormat != format)
@@ -2512,12 +2587,12 @@ namespace WinterOutbreak
             chunk.Mesh.SetColors(_exposure);
             if (_prints != null)
             {
-                // Always written in GPU mode: a mesh without this channel must not depend on the driver's default.
+                // Always written in GPU mode
                 PadPrintLimits();
                 chunk.Mesh.SetUVs(3, _printLimits);
 
                 // The shader presses refined cells down by up to 16 cm and grows the snow up to 10 cm past its built
-                // depth; keep both inside the culling bounds.
+                // depth
                 Bounds bounds = chunk.Mesh.bounds;
                 bounds.Encapsulate(bounds.min - Vector3.up * 0.25f);
                 bounds.Encapsulate(bounds.max + Vector3.up * 0.12f);
@@ -2527,14 +2602,9 @@ namespace WinterOutbreak
                 _growthBlock.SetFloat(BuiltDepthId, depth);
                 chunk.Object.GetComponent<MeshRenderer>()?.SetPropertyBlock(_growthBlock);
             }
-
-            _rebuildPhases.Upload = Stopwatch.GetTimestamp() - upload;
-            _rebuildPhases.TotalVertices = _vertices.Count;
         }
 
-        // Vertex colour alpha tells the shader how open the sky is above the snow: 1 outdoors, 0 on doorway drift and
-        // other sheltered snow. Wind ripples and sparkle fade with it, so indoor drift reads as calm snow. Each mesh
-        // corner averages its four cells, so the fade spans one cell at a doorway.
+        // Vertex colour alpha tells the shader how open the sky is above the snow
         private static readonly Color32 OpenSnow = new Color32(255, 255, 255, 255);
         private readonly List<Color32> _exposure = new List<Color32>();
         private readonly float[] _cellOpen = new float[(ChunkWidth + 2) * (ChunkWidth + 2)];
@@ -2558,11 +2628,12 @@ namespace WinterOutbreak
                 for (int x = 0; x < meshWidth; x++)
                 {
                     int cell = z * cellWidth + x;
-                    _cornerOpen[z * meshWidth + x] = (_cellOpen[cell] + _cellOpen[cell + 1] + _cellOpen[cell + cellWidth] + _cellOpen[cell + cellWidth + 1]) * 0.25f;
+                    _cornerOpen[z * meshWidth + x] = (_cellOpen[cell] + _cellOpen[cell + 1]
+                        + _cellOpen[cell + cellWidth] + _cellOpen[cell + cellWidth + 1]) * 0.25f;
                 }
             }
 
-            // Every vertex (refined cells, skirts, raised caps) reads the corner grid at its own position.
+            // Every vertex (refined cells, skirts, raised caps) reads the corner grid at its own position
             _exposure.Clear();
             for (int i = 0; i < _vertices.Count; i++)
             {
@@ -2572,7 +2643,8 @@ namespace WinterOutbreak
                 int x = Mathf.Min((int)u, ChunkWidth - 1);
                 int z = Mathf.Min((int)v, ChunkWidth - 1);
                 int a = z * meshWidth + x;
-                float open = InterpolateHeight(_cornerOpen[a], _cornerOpen[a + meshWidth], _cornerOpen[a + 1], _cornerOpen[a + meshWidth + 1], u - x, v - z);
+                float open = InterpolateHeight(_cornerOpen[a], _cornerOpen[a + meshWidth], _cornerOpen[a + 1],
+                    _cornerOpen[a + meshWidth + 1], u - x, v - z);
 
                 _exposure.Add(new Color32(255, 255, 255, (byte)Mathf.RoundToInt(Mathf.Clamp01(open) * 255f)));
             }
@@ -2584,13 +2656,11 @@ namespace WinterOutbreak
             chunk.PreparedCorners ??= new SurfaceCorner[CornerWidth * CornerWidth];
             if (!chunk.SurfacePrepared)
             {
-                // Normally done ahead in slices (AdvancePublishPreparation); finish any remainder now.
-                long started = Stopwatch.GetTimestamp();
+                // Normally done ahead in slices (AdvancePublishPreparation)
                 PrepareSurfaceSlice(chunk, long.MaxValue);
-                _rebuildPhases.Corners = Stopwatch.GetTimestamp() - started;
             }
 
-            // Steps the snow has outgrown drape into one surface; taller steps stay split at their risers.
+            // Steps the snow has outgrown drape into one surface
             for (int i = 0; i < chunk.Corners.Length; i++)
             {
                 chunk.Corners[i] = ResolveCorner(chunk.PreparedCorners[i], depth);
@@ -2620,11 +2690,12 @@ namespace WinterOutbreak
                         _meltFactors[z * meshWidth + x] = melt;
                     }
 
-                    float height = melt < 1f ? Mathf.Lerp(corner.Height(0f) - 0.03f, corner.Height(depth), melt) : corner.Height(depth);
+                    float height = melt < 1f ? Mathf.Lerp(corner.Height(0f) - 0.03f, corner.Height(depth), melt)
+                        : corner.Height(depth);
                     Vector3 position = new Vector3((chunk.X + x) * CellWidth, height, (chunk.Z + z) * CellWidth);
                     if (corner.HasGround && !corner.Split)
                     {
-                        // Where snow ends beside bare or blocked cells, move the corner onto the real edge.
+                        // Where snow ends beside bare or blocked cells, move the corner onto the real edge
                         Vector2 shift = chunk.OutlineShifts[z * meshWidth + x];
                         position.x += shift.x;
                         position.z += shift.y;
@@ -2633,13 +2704,13 @@ namespace WinterOutbreak
                     _vertices.Add(position);
                     if (_prints != null)
                     {
-                        // Coarse ground shows prints in its lighting until the cells are refined.
+                        // Coarse ground shows prints in its lighting until the cells are refined
                         float rise = (corner.Height(depth + GrowthProbe) - corner.Height(depth)) / GrowthProbe * melt;
-                        // Coarse ground shows prints in its lighting only.
+                        // Coarse ground shows prints in its lighting only
                         _printLimits.Add(new Vector4(0f, Mathf.Max(0f, height - corner.Height(0f)) * 0.95f, 0f, rise));
                     }
 
-                    // The one-vertex halo gives adjacent chunks identical normals at the seam.
+                    // The one-vertex halo gives adjacent chunks identical normals at the seam
                     float dx = Slope(chunk.Corners[index - 1], chunk.Corners[index + 1], depth);
                     float dz = Slope(chunk.Corners[index - CornerWidth], chunk.Corners[index + CornerWidth], depth);
                     _normals.Add(new Vector3(-dx, 2f * CellWidth, -dz).normalized);
@@ -2673,7 +2744,7 @@ namespace WinterOutbreak
 
                         if (lowest < 0.999f)
                         {
-                            // Thinned cells beside a fire stay one plain quad on the shared vertices.
+                            // Thinned cells beside a fire stay one plain quad on the shared vertices
                             AddSurfaceQuad(a, b, a + 1, b + 1);
                             continue;
                         }
@@ -2681,13 +2752,18 @@ namespace WinterOutbreak
 
                     var cell = new CellVertices
                     {
-                        A = AddLevelVertex(a, column, chunk.Corners[corner], depth, 0.5f, 0.5f, chunk.X + x, chunk.Z + z),
-                        B = AddLevelVertex(b, column, chunk.Corners[corner + CornerWidth], depth, 0.5f, -0.5f, chunk.X + x, chunk.Z + z + 1),
-                        C = AddLevelVertex(a + 1, column, chunk.Corners[corner + 1], depth, -0.5f, 0.5f, chunk.X + x + 1, chunk.Z + z),
-                        D = AddLevelVertex(b + 1, column, chunk.Corners[corner + CornerWidth + 1], depth, -0.5f, -0.5f, chunk.X + x + 1, chunk.Z + z + 1)
+                        A = AddLevelVertex(a, column, chunk.Corners[corner], depth, 0.5f, 0.5f,
+                            chunk.X + x, chunk.Z + z),
+                        B = AddLevelVertex(b, column, chunk.Corners[corner + CornerWidth], depth, 0.5f, -0.5f,
+                            chunk.X + x, chunk.Z + z + 1),
+                        C = AddLevelVertex(a + 1, column, chunk.Corners[corner + 1], depth, -0.5f, 0.5f,
+                            chunk.X + x + 1, chunk.Z + z),
+                        D = AddLevelVertex(b + 1, column, chunk.Corners[corner + CornerWidth + 1], depth, -0.5f, -0.5f,
+                            chunk.X + x + 1, chunk.Z + z + 1)
                     };
                     bool hasImpression = hasFootprints && _detailedCells[z * ChunkWidth + x];
-                    var heights = new Vector4(_vertices[cell.A].y, _vertices[cell.B].y, _vertices[cell.C].y, _vertices[cell.D].y);
+                    var heights = new Vector4(_vertices[cell.A].y, _vertices[cell.B].y,
+                        _vertices[cell.C].y, _vertices[cell.D].y);
                     bool hasTransition = TryGetGroundTransition(chunk, corner, column, heights, out var transition);
                     if (hasImpression || hasTransition)
                     {
@@ -2702,11 +2778,7 @@ namespace WinterOutbreak
         }
 
         /// <summary>
-        /// Prepares a chunk's surface until the deadline, resuming where the last slice stopped. Every step either
-        /// stores its result in the chunk or warms a value memoised in the columns, so the first build only reads: 1.
-        /// the surface columns around the chunk, 2. the prepared corners, 3. the outline edge shifts (snow cover does
-        /// not change between rebuilds), 4. the edges at split corners, which the surface build searches when it places
-        /// each level's edge.
+        /// Prepares a chunk's surface until the deadline, resuming where the last slice stopped.
         /// </summary>
         private bool PrepareSurfaceSlice(Chunk chunk, long deadline)
         {
@@ -2722,7 +2794,7 @@ namespace WinterOutbreak
             const int edgesEnd = shiftsEnd + CornerWidth * CornerWidth;
             if (chunk.PreparedCorners == null || chunk.OutlineShifts == null)
             {
-                // Freed or never made: any earlier progress belongs to old arrays.
+                // Freed or never made: any earlier progress belongs to old arrays
                 chunk.PrepareStep = 0;
             }
 
@@ -2730,7 +2802,7 @@ namespace WinterOutbreak
             chunk.PreparedCorners ??= new SurfaceCorner[CornerWidth * CornerWidth];
             chunk.OutlineShifts ??= new Vector2[shiftWidth * shiftWidth];
 
-            if (chunk.PrepareStep == 0 && !ScanChunkForStairs(chunk))
+            if (chunk.PrepareStep == 0 && !ScanChunkForStairs(chunk, deadline))
             {
                 return false;
             }
@@ -2767,8 +2839,8 @@ namespace WinterOutbreak
                 {
                     int i = step - cornersEnd;
                     int cx = chunk.X + i % shiftWidth, cz = chunk.Z + i / shiftWidth;
-                    int mask = (SurfaceAt(cx - 1, cz - 1).Exposed ? 1 : 0) | (SurfaceAt(cx, cz - 1).Exposed ? 2 : 0) | (SurfaceAt(cx - 1, cz).Exposed ? 4 : 0)
-                               | (SurfaceAt(cx, cz).Exposed ? 8 : 0);
+                    int mask = (SurfaceAt(cx - 1, cz - 1).Exposed ? 1 : 0) | (SurfaceAt(cx, cz - 1).Exposed ? 2 : 0)
+                        | (SurfaceAt(cx - 1, cz).Exposed ? 4 : 0) | (SurfaceAt(cx, cz).Exposed ? 8 : 0);
                     chunk.OutlineShifts[i] = EdgeShift(cx, cz, mask);
                     if ((step & 3) == 3 && Stopwatch.GetTimestamp() > deadline)
                     {
@@ -2820,31 +2892,32 @@ namespace WinterOutbreak
             _triangles.Add(d);
         }
 
-        private int AddLevelVertex(int shared, Column column, SurfaceCorner corner, float depth, float x, float z, int cornerX, int cornerZ)
+        private int AddLevelVertex(int shared, Column column, SurfaceCorner corner, float depth, float x, float z,
+            int cornerX, int cornerZ)
         {
             if (!corner.Split)
             {
                 return shared;
             }
 
-            // Terminate each side at its own supporting surface. No triangles span a riser.
+            // Terminate each side at its own supporting surface
             Vector3 point = _vertices[shared];
             _lastLevelMask = 0;
             point.y = CellVertexHeight(column, corner, depth, x, z, cornerX, cornerZ);
             if (_lastLevelMask != 0)
             {
-                // Undo any outline shift of the shared vertex, then place this level's edge on the riser line.
+                // Undo any outline shift of the shared vertex, then place this level's edge on the riser line
                 Vector2 shift = EdgeShift(cornerX, cornerZ, _lastLevelMask);
                 point.x = cornerX * CellWidth + shift.x;
                 point.z = cornerZ * CellWidth + shift.y;
             }
-
             int index = _vertices.Count;
             if (_prints != null)
             {
-                // This level's own growth rate, so split levels grow apart the way their rebuild would place them.
+                // This level's own growth rate, so split levels grow apart the way their rebuild would place them
                 int mask = _lastLevelMask;
-                float rise = (CellVertexHeight(column, corner, depth + GrowthProbe, x, z, cornerX, cornerZ) - point.y) / GrowthProbe;
+                float rise = (CellVertexHeight(column, corner, depth + GrowthProbe, x, z, cornerX, cornerZ) - point.y)
+                    / GrowthProbe;
                 _lastLevelMask = mask;
                 PadPrintLimits();
                 _printLimits.Add(new Vector4(0f, depth * 0.95f, 0f, rise));
@@ -2855,10 +2928,9 @@ namespace WinterOutbreak
             return index;
         }
 
-        // Cells on the same level of a split corner share one vertex height, the mean of their own corner heights.
-        // Levels are split where the projected ground steps by more than LevelJoinStep, so the riser itself stays
-        // split.
-        private float SharedLevelHeight(Column column, SurfaceCorner corner, float depth, float x, float z, int cornerX, int cornerZ)
+        // Cells on the same level of a split corner share one vertex height, the mean of their own corner heights
+        private float SharedLevelHeight(Column column, SurfaceCorner corner, float depth, float x, float z,
+            int cornerX, int cornerZ)
         {
             int count = 0;
             int self = -1;
@@ -2893,7 +2965,7 @@ namespace WinterOutbreak
                 return _levelHeights[0];
             }
 
-            // Single-linkage levels: sort by ground, cut wherever the next ground is more than LevelJoinStep higher.
+            // Single-linkage levels
             for (int i = 0; i < count; i++)
             {
                 _levelOrder[i] = i;
@@ -2945,11 +3017,12 @@ namespace WinterOutbreak
         private const float LevelJoinStep = 0.16f;
         private readonly int[] _levelBits = new int[4];
 
-        // The cells (EdgeShift bits) of the level the last SharedLevelHeight call joined; 0 when it joined none.
+        // The cells (EdgeShift bits) of the level the last SharedLevelHeight call joined
         private int _lastLevelMask;
 
-        // The height a cell's corner is drawn at.
-        private float CellVertexHeight(Column column, SurfaceCorner corner, float depth, float x, float z, int cornerX, int cornerZ)
+        // The height a cell's corner is drawn at
+        private float CellVertexHeight(Column column, SurfaceCorner corner, float depth, float x, float z,
+            int cornerX, int cornerZ)
         {
             if (!corner.Split || (corner.FloorJoined && !column.ShowsUpperLevel))
             {
@@ -2958,7 +3031,6 @@ namespace WinterOutbreak
 
             return SharedLevelHeight(column, corner, depth, x, z, cornerX, cornerZ);
         }
-
         private readonly float[] _levelGrounds = new float[4];
         private readonly float[] _levelHeights = new float[4];
         private readonly int[] _levelOrder = new int[4];
@@ -2976,14 +3048,16 @@ namespace WinterOutbreak
             }
 
             float ground = ProjectGroundHeight(column, x, z);
-            // The upper side of a step too tall to bury ends just under its rim, so no snow lip floats at the edge.
+            // The upper side of a step too tall to bury ends just under its rim, so no snow lip floats at the edge
             bool upperSide = ground > corner.Low + corner.Step * 0.5f;
             bool upperRim = !corner.CanDrape && upperSide && !corner.RoofJoin;
             float sideDepth = upperSide ? corner.CappedDepth(depth) : depth;
             float height = ground + sideDepth * CellCornerDepthWeight(column, corner, x, z) + (upperRim ? -0.02f : 0.003f);
 
-            // Snow banked on the lower side of a step never stands above the step it leans on.
-            return ground <= corner.Low + corner.Step * 0.5f ? Mathf.Min(height, Mathf.Max(ground + 0.003f, corner.Low + corner.Step)) : height;
+            // Snow banked on the lower side of a step never stands above the step it leans on
+            return ground <= corner.Low + corner.Step * 0.5f
+                ? Mathf.Min(height, Mathf.Max(ground + 0.003f, corner.Low + corner.Step))
+                : height;
         }
 
         private static float CellCornerDepthWeight(Column column, SurfaceCorner corner, float x, float z)
@@ -2993,7 +3067,7 @@ namespace WinterOutbreak
                 return corner.DepthWeight;
             }
 
-            // The floor beside a shown roof uses its shared corner, whose weight already includes drift.
+            // The floor beside a shown roof uses its shared corner, whose weight already includes drift
             if (corner.FloorJoined && !column.ShowsUpperLevel)
             {
                 return corner.FloorDepthWeight;
@@ -3002,8 +3076,7 @@ namespace WinterOutbreak
             float weight = column.ShowsUpperLevel ? corner.DepthWeight : corner.FloorDepthWeight;
 
             // A ledge taller than any snow keeps its riser, and its upper side rounds off toward the rim instead of
-            // ending in a full-depth sheet. A step the snow may still bury keeps full depth, so it does not notch
-            // against neighboring corners that have already draped.
+            // ending in a full-depth sheet
             bool upperSide = ProjectGroundHeight(column, x, z) > corner.Low + corner.Step * 0.5f;
             if (!corner.CanDrape && upperSide && !corner.RoofJoin)
             {
@@ -3011,10 +3084,10 @@ namespace WinterOutbreak
             }
             else if (!upperSide)
             {
-                // Frozen lake ice at the foot of a pier or dock keeps its shore share (1 anywhere else).
+                // Frozen lake ice at the foot of a pier or dock keeps its shore share (1 anywhere else)
                 weight *= corner.LowShare;
 
-                // The lower side banks against the riser: wind-driven snow collects at the foot of a step.
+                // The lower side banks against the riser: wind-driven snow collects at the foot of a step
                 if (!column.Sheltered && !column.ShowsUpperLevel)
                 {
                     weight *= LedgeBankWeight;
@@ -3026,7 +3099,8 @@ namespace WinterOutbreak
 
         private static SurfaceCorner ResolveCorner(SurfaceCorner corner, float depth)
         {
-            if (!corner.Split || !corner.CanDrape || corner.DrapeBase + depth * corner.DrapeWeight < corner.Low + corner.Step + DrapeCover)
+            if (!corner.Split || !corner.CanDrape
+                || corner.DrapeBase + depth * corner.DrapeWeight < corner.Low + corner.Step + DrapeCover)
             {
                 return corner;
             }
@@ -3071,8 +3145,7 @@ namespace WinterOutbreak
                     upper |= column.ShowsUpperLevel;
                     floor |= !column.ShowsUpperLevel;
 
-                    // Project the ground normal from the cell center onto the mesh corner. A continuous slope should
-                    // give the same corner height from both sides.
+                    // Project the ground normal from the cell center onto the mesh corner
                     float height = ProjectGroundHeight(column, dx + 0.5f, dz + 0.5f);
                     lowestCell = Mathf.Min(lowestCell, column.GroundHeight);
                     if (column.GroundHeight > highestCell)
@@ -3109,8 +3182,7 @@ namespace WinterOutbreak
             float ledgeHeight = minNormalY >= 0.85f ? (hasPavement && !sheltered ? 0.28f : 0.12f) : 0.22f;
             bool ledge = max - min > ledgeHeight;
 
-            // A drop down to a floor that lies under a roof level with the upper side is not an edge of the snow: the
-            // upper side carries on onto the roof's cap (the Woods bunker's earth roof over its doorway drift).
+            // A drop down to a floor that lies under a roof level with the upper side is not an edge of the snow
             bool roofJoin = false;
             if (ledge && !upper)
             {
@@ -3133,33 +3205,31 @@ namespace WinterOutbreak
                 SampleGroundEdge(x, z, sum / count, out shelterWeight, out mound);
             }
 
-            // Buried edges let the original ground and objects provide the visible silhouette.
+            // Buried edges let the original ground and objects provide the visible silhouette
             float feather = ledge ? 0f : FeatherWeight(nearestGap);
 
-            // The sea bed beside frozen sea ice: no snow, and the skin sinks under the bed so it does not show through
-            // the open water (FrozenIce.IsUnderSea).
+            // The sea bed beside frozen sea ice
             if (FrozenIce.IsUnderSea(_origin.x + x * CellWidth, _origin.z + z * CellWidth, _origin.y + lowestCell))
             {
                 feather = 0f;
             }
 
             // Snow on the upper side of a drop thins toward the rim over a reach that wanders with noise, and a raised
-            // surface holds less snow than the ground.
+            // surface holds less snow than the ground
             float worldX = _origin.x + x * CellWidth;
             float worldZ = _origin.z + z * CellWidth;
             float raisedShare = 0f;
 
             // The sea's ice field also covers the beach, so beach terrain up to 2.5 m above the water read as a deck
-            // and held a flat 12 cm band with a step at both ends. Only decks and props count as decks; terrain keeps
-            // the ground rules.
-            bool lakeDeck = !upper && !highestOnTerrain && FrozenIce.IsLakeDeck(worldX, worldZ, _origin.y + highestCell);
+            // and held a flat 12 cm band with a step at both ends
+            bool lakeDeck = !upper && !highestOnTerrain
+                && FrozenIce.IsLakeDeck(worldX, worldZ, _origin.y + highestCell);
             if (lakeDeck)
             {
-                // Pier decks and props over the frozen lake hold one thin, even cover. The rim rule left decks 37 cm
-                // above the ice almost bare and heaped 40 cm on decks 29 cm above it (FrozenLake.cs).
+                // Pier decks and props over the frozen lake hold one thin, even cover
                 raisedShare = 1f;
 
-                // The cover thins over the last cell before a drop to the ice instead of ending in a 12 cm face.
+                // The cover thins over the last cell before a drop to the ice instead of ending in a 12 cm face
                 if (!ledge)
                 {
                     feather = Mathf.Min(feather, FeatherWeight(NearestDeckDrop(x, z, highestCell)));
@@ -3167,31 +3237,32 @@ namespace WinterOutbreak
             }
             else if (!upper && count > 0 && minNormalY >= 0.90f)
             {
-                // A split corner reads only the cells on its upper side; the lower side is not on the raised surface.
+                // A split corner reads only the cells on its upper side
                 float rimDistance = CornerRimDistance(x, z, ledge ? min + (max - min) * 0.5f : float.NegativeInfinity);
                 if (!ledge)
                 {
                     feather = Mathf.Min(feather, RimFeather(rimDistance, x, z));
                 }
 
-                raisedShare = 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(RaisedFullReach, RaisedFadeReach, rimDistance));
+                raisedShare = 1f - Mathf.SmoothStep(0f, 1f,
+                    Mathf.InverseLerp(RaisedFullReach, RaisedFadeReach, rimDistance));
             }
-
             float ground = Mathf.Lerp(min, sum / count, feather);
             float variation = GroundVariation(x * CellWidth, z * CellWidth);
 
-            // A shown roof is not snow the floor can join.
+            // A shown roof is not snow the floor can join
             bool floorJoined = ledge && upper && floor && floorMax - floorMin <= ledgeHeight;
             float floorFeather = floorJoined ? FeatherWeight(NearestFeatherGap(x, z, false)) : 0f;
-            float floorWeight = floorJoined ? floorFeather * variation * (floorAccumulation / floorCount) : variation;
+            float floorWeight = floorJoined
+                ? floorFeather * variation * (floorAccumulation / floorCount)
+                : variation;
             float depthWeight = feather * variation * (accumulation / count);
             if (SuppressIndoorSnow)
             {
                 depthWeight *= shelterWeight;
             }
 
-            // On frozen lake ice: a bank at the shore feathering to nothing over a few metres (FrozenLake.cs). Corner
-            // heights are relative to the area origin; the ice field works in world heights.
+            // On frozen lake ice
             float iceShare = FrozenIce.SnowShare(worldX, worldZ, _origin.y + lowestCell);
             depthWeight *= iceShare;
 
@@ -3204,7 +3275,9 @@ namespace WinterOutbreak
                 DepthWeight = ledge ? variation : depthWeight * (1f + mound * MoundBoost),
                 FloorDepthWeight = floorWeight,
                 FloorJoined = floorJoined,
-                FloorBase = floorJoined ? Mathf.Lerp(floorMin, floorSum / floorCount, floorFeather) + Mathf.Lerp(-0.06f, 0.006f, floorFeather) : 0f,
+                FloorBase = floorJoined
+                    ? Mathf.Lerp(floorMin, floorSum / floorCount, floorFeather) + Mathf.Lerp(-0.06f, 0.006f, floorFeather)
+                    : 0f,
                 Step = max - min,
                 Low = min,
                 RaisedShare = raisedShare,
@@ -3212,8 +3285,7 @@ namespace WinterOutbreak
                 RoofJoin = roofJoin
             };
 
-            // A step lower than the deepest possible snow can be buried. Prepare the surface it would have then, built
-            // exactly like an unsplit corner. A shown roof never drapes onto the floor beside it.
+            // A step lower than the deepest possible snow can be buried
             if (ledge && !(upper && floor) && count >= 2 && max - min < MaxDrapeStep)
             {
                 float drapeGap = NearestFeatherGap(x, z, upper);
@@ -3231,11 +3303,11 @@ namespace WinterOutbreak
 
                 corner.DrapeWeight = drapeWeight * (1f + drapeMound * MoundBoost) * iceShare;
 
-                // The step must be lower than the snow this corner actually receives, not the storm maximum.
+                // The step must be lower than the snow this corner actually receives, not the storm maximum
                 corner.DrapeDepth = variation * (accumulation / count);
             }
 
-            // A deck edge never drapes onto the ice: its upper side ends just under the rim, like a tall ledge.
+            // A deck edge never drapes onto the ice: its upper side ends just under the rim, like a tall ledge
             if (lakeDeck)
             {
                 corner.CanDrape = false;
@@ -3245,7 +3317,7 @@ namespace WinterOutbreak
         }
 
         // Distance from a deck corner to the nearest snowy cell that lies clearly below the deck (the ice, or the
-        // ground beside a dock). FeatherDistance when there is none within the feather scan.
+        // ground beside a dock)
         private float NearestDeckDrop(int x, int z, float deckHeight)
         {
             const float drop = 0.10f;
@@ -3261,9 +3333,7 @@ namespace WinterOutbreak
             return FeatherDistance;
         }
 
-        // Corner setup reads each surface column dozens of times through the feather scan. Resolving the chunk and its
-        // feather halo once turns about 30,000 lookups per chunk into about 1,200. The rim field (RimCells) reaches
-        // further than the feather scan (FeatherCells), so it sets the margin.
+        // Corner setup reads each surface column dozens of times through the feather scan
         private const int SurfaceCacheMargin = RimCells + 2;
         private const int SurfaceCacheWidth = CornerWidth + 2 * SurfaceCacheMargin;
         private readonly Column[] _surfaceCache = new Column[SurfaceCacheWidth * SurfaceCacheWidth];
@@ -3300,9 +3370,7 @@ namespace WinterOutbreak
             _surfaceCacheActive = true;
         }
 
-        // Distance from each cached cell center to the nearest rim on its own level, in meters. A rim cell is a snowy
-        // floor cell with a snowy floor neighbor lower by RimDrop or more; it lies half a cell from the edge. Distances
-        // spread only between neighbors on one level, so the street below a planter stays unaffected.
+        // Distance from each cached cell center to the nearest rim on its own level, in meters
         private readonly float[] _rimDistance = new float[SurfaceCacheWidth * SurfaceCacheWidth];
 
         private void BuildRimDistance()
@@ -3332,8 +3400,9 @@ namespace WinterOutbreak
 
                             ref Column next = ref _surfaceCache[nz * width + nx];
                             // A floor under a roof level with this cell is not a drop: the snow carries on onto the
-                            // roof.
-                            if (OnRimLevel(ref next) && next.GroundHeight < cell.GroundHeight - RimDrop && !RoofFlush(next, cell.GroundHeight))
+                            // roof
+                            if (OnRimLevel(ref next) && next.GroundHeight < cell.GroundHeight - RimDrop
+                                && !RoofFlush(next, cell.GroundHeight))
                             {
                                 _rimDistance[i] = CellWidth * 0.5f;
                                 break;
@@ -3391,15 +3460,14 @@ namespace WinterOutbreak
 
             ref Column cell = ref _surfaceCache[i];
             ref Column next = ref _surfaceCache[j];
-            if (OnRimLevel(ref cell) && OnRimLevel(ref next) && Mathf.Abs(cell.GroundHeight - next.GroundHeight) < RimDrop)
+            if (OnRimLevel(ref cell) && OnRimLevel(ref next)
+                && Mathf.Abs(cell.GroundHeight - next.GroundHeight) < RimDrop)
             {
                 _rimDistance[i] = through;
             }
         }
 
-        // Distance from mesh corner (x, z) to the nearest rim on its level: the mean over its cells, which is exact for
-        // a straight rim (0.25 m one cell in, 0.5 m two cells in). A split corner reads only its cells above upperFrom
-        // and takes the nearest. Beyond the cache, or with no rim in reach, it reports 2 m.
+        // Distance from mesh corner (x, z) to the nearest rim on its level
         private float CornerRimDistance(int x, int z, float upperFrom)
         {
             bool split = !float.IsNegativeInfinity(upperFrom);
@@ -3433,8 +3501,7 @@ namespace WinterOutbreak
             return count == 0 ? 2f : split ? nearest : sum / count;
         }
 
-        // The ground-edge scan reads raw columns up to 2.1 m away. Outside Interchange it only looks for mound sources,
-        // so a chunk with none nearby skips the scan entirely.
+        // The ground-edge scan reads raw columns up to 2.1 m away
         private const int RawCacheMargin = ShelterTaperCells + 2;
         private const int RawCacheWidth = CornerWidth + 2 * RawCacheMargin;
         private readonly Column[] _rawCache = new Column[RawCacheWidth * RawCacheWidth];
@@ -3446,20 +3513,21 @@ namespace WinterOutbreak
         {
             int i = x - _rawCacheX;
             int j = z - _rawCacheZ;
-            return _surfaceCacheActive && i >= 0 && j >= 0 && i < RawCacheWidth && j < RawCacheWidth ? _rawCache[j * RawCacheWidth + i] : GetColumn(x, z);
+            return _surfaceCacheActive && i >= 0 && j >= 0 && i < RawCacheWidth && j < RawCacheWidth
+                ? _rawCache[j * RawCacheWidth + i]
+                : GetColumn(x, z);
         }
 
         private Column SurfaceAt(int x, int z)
         {
             int i = x - _surfaceCacheX;
             int j = z - _surfaceCacheZ;
-            return _surfaceCacheActive && i >= 0 && j >= 0 && i < SurfaceCacheWidth && j < SurfaceCacheWidth ? _surfaceCache[j * SurfaceCacheWidth + i] : GetSurfaceColumn(x, z);
+            return _surfaceCacheActive && i >= 0 && j >= 0 && i < SurfaceCacheWidth && j < SurfaceCacheWidth
+                ? _surfaceCache[j * SurfaceCacheWidth + i]
+                : GetSurfaceColumn(x, z);
         }
 
-        // Distance to the nearest cell this corner's level cannot join: bare ground, or the other level. Thins snow
-        // toward a rim. The reach varies between 55 and 95 cm along the edge, so the line where the snow meets the bare
-        // surface wanders instead of following one engineered bevel. At a 75 cm reach the corners one, two and three
-        // cells in carry about 20, 65 and 95 % of the depth.
+        // Distance to the nearest cell this corner's level cannot join: bare ground, or the other level
         private float RimFeather(float rimDistance, int x, int z)
         {
             float noise = Mathf.PerlinNoise((_origin.x + x * CellWidth) * 1.3f + 17.3f, (_origin.z + z * CellWidth) * 1.3f + 5.1f);
@@ -3467,14 +3535,13 @@ namespace WinterOutbreak
             return Mathf.SmoothStep(0f, 1f, rimDistance / reach);
         }
 
-        // A cell whose stored open roof (Column.HasRoof) lies level with this snow: the ground carries on onto the
-        // roof's raised cap there, so it is neither a gap nor a drop.
+        // A cell whose stored open roof (Column.HasRoof) lies level with this snow
         private static bool RoofFlush(Column column, float level)
         {
             return column.HasRoof && Mathf.Abs(column.RoofHeight - level) < RoofJoinTolerance;
         }
 
-        // level: the corner's ground height, for the roof join; NaN where it does not apply.
+        // level
         private float NearestFeatherGap(int x, int z, bool upperLevel, float level = float.NaN)
         {
             foreach (var offset in FeatherOffsets)
@@ -3508,10 +3575,10 @@ namespace WinterOutbreak
             {
                 return;
             }
-
             foreach (var offset in GroundEdgeOffsets)
             {
-                float moundFalloff = offset.Distance < MoundReach ? DoorDriftFalloff(offset.Distance, MoundReach, 1f) : 0f;
+                float moundFalloff = offset.Distance < MoundReach
+                    ? DoorDriftFalloff(offset.Distance, MoundReach, 1f) : 0f;
                 bool checkMound = moundFalloff > mound;
                 bool checkShelter = SuppressIndoorSnow && shelterWeight == 1f;
                 if (!checkMound && !checkShelter)
@@ -3520,7 +3587,8 @@ namespace WinterOutbreak
                 }
 
                 Column neighbor = RawAt(x + offset.X, z + offset.Z);
-                if ((!neighbor.Sheltered && neighbor.MoundStrength <= 0f) || !neighbor.HasGround || Mathf.Abs(neighbor.GroundHeight - height) > 0.22f)
+                if ((!neighbor.Sheltered && neighbor.MoundStrength <= 0f) || !neighbor.HasGround
+                    || Mathf.Abs(neighbor.GroundHeight - height) > 0.22f)
                 {
                     continue;
                 }
@@ -3548,13 +3616,16 @@ namespace WinterOutbreak
 
         private static float ProjectGroundHeight(Column column, float sampleOffsetX, float sampleOffsetZ)
         {
-            float correction = CellWidth * (column.Normal.x * sampleOffsetX + column.Normal.z * sampleOffsetZ) / Mathf.Max(0.35f, column.Normal.y);
+            float correction = CellWidth * (column.Normal.x * sampleOffsetX + column.Normal.z * sampleOffsetZ)
+                / Mathf.Max(0.35f, column.Normal.y);
             return column.GroundHeight + Mathf.Clamp(correction, -0.22f, 0.22f);
         }
 
         private static float Slope(SurfaceCorner a, SurfaceCorner b, float depth)
         {
-            return a.HasGround && b.HasGround && !a.Split && !b.Split ? Mathf.Clamp(b.Height(depth) - a.Height(depth), -0.35f, 0.35f) : 0f;
+            return a.HasGround && b.HasGround && !a.Split && !b.Split
+                ? Mathf.Clamp(b.Height(depth) - a.Height(depth), -0.35f, 0.35f)
+                : 0f;
         }
 
         public void Dispose()
@@ -3621,7 +3692,7 @@ namespace WinterOutbreak
             public bool Sheltered;
             public bool Pavement;
 
-            // The floor is the terrain itself (or the ice that stands in for it on a frozen lake).
+            // The floor is the terrain itself (or the ice that stands in for it on a frozen lake)
             public bool OnTerrain;
             public float MoundStrength;
             public float GroundHeight;
@@ -3630,25 +3701,24 @@ namespace WinterOutbreak
             public bool HasUpperLevel;
             public float UpperHeight;
 
-            // The cell lies on a measured stair flight: its ground is the flight's slope (VoxelStairFlights.cs).
+            // The cell lies on a measured stair flight: its ground is the flight's slope (VoxelStairFlights.cs)
             public bool StairOwned;
 
-            // A walkable surface the ground search passed over, more than 10 cm above the ground it chose.
+            // A walkable surface the ground search passed over, more than 10 cm above the ground it chose
             public bool HasTop;
             public float TopHeight;
 
-            // Woods bunker stairwells and trenches (VoxelBunkerTrench.cs): BunkerPart when the search met any part of a
-            // bunker, BunkerTrench when the open cell lies on or through the bunker's inner shell.
+            // Woods bunker stairwells and trenches (VoxelBunkerTrench.cs)
             public bool BunkerPart;
             public bool BunkerTrench;
 
-            // An open roof over this sheltered floor on a terrain map, stored but never shown (see RoofFlush).
+            // An open roof over this sheltered floor on a terrain map, stored but never shown (see RoofFlush)
             public bool HasRoof;
             public float RoofHeight;
             public Vector3 UpperNormal;
             public bool ShowsUpperLevel;
 
-            // Resolved lazily from neighbors, then cached like doorway drift.
+            // Resolved lazily from neighbors, then cached like doorway drift
             public bool SurfaceGroundResolved;
             public float SurfaceGround;
             public bool PitFilled;
@@ -3678,26 +3748,27 @@ namespace WinterOutbreak
             public bool FloorJoined;
             public float FloorBase;
 
-            // A split corner also carries the surface it would have if snow covered the step.
+            // A split corner also carries the surface it would have if snow covered the step
             public float Step;
             public float Low;
             public bool CanDrape;
 
-            // The lower side of this split lies under a roof level with the upper side (RoofFlush): the upper side
-            // keeps its full depth up to the edge, where the roof's cap takes over.
+            // The lower side of this split lies under a roof level with the upper side (RoofFlush)
             public bool RoofJoin;
             public float DrapeBase;
             public float DrapeFeather;
             public float DrapeWeight;
             public float DrapeDepth;
 
-            // Share of RaisedSurfaceDepth's cap that applies: 1 near a rim, 0 on open ground.
+            // Share of RaisedSurfaceDepth's cap that applies: 1 near a rim, 0 on open ground
             public float RaisedShare;
 
-            // Share of the depth the lower side of a split corner keeps: the frozen lake's shore share, 1 elsewhere.
+            // Share of the depth the lower side of a split corner keeps
             public float LowShare;
 
-            public float CappedDepth(float depth) => RaisedShare > 0f ? Mathf.Lerp(depth, Mathf.Min(depth, RaisedSurfaceDepth), RaisedShare) : depth;
+            public float CappedDepth(float depth) => RaisedShare > 0f
+                ? Mathf.Lerp(depth, Mathf.Min(depth, RaisedSurfaceDepth), RaisedShare)
+                : depth;
 
             public float Height(float depth) => BaseHeight + CappedDepth(depth) * DepthWeight;
         }
@@ -3730,7 +3801,7 @@ namespace WinterOutbreak
             public bool DriftComplete;
             private bool _surfacePrepared;
 
-            // Clearing it restarts the sliced preparation from the top.
+            // Clearing it restarts the sliced preparation from the top
             public bool SurfacePrepared
             {
                 get => _surfacePrepared;
@@ -3743,7 +3814,6 @@ namespace WinterOutbreak
                     }
                 }
             }
-
             public Mesh Mesh;
             public GameObject Object;
             public float GrowthStarted;
@@ -3751,20 +3821,15 @@ namespace WinterOutbreak
             public float GrowthOffset;
             public List<SnowImpression> Footprints;
             public bool FootprintsDirty;
-
             public float FootprintRefresh = float.PositiveInfinity;
-
-            // GPU prints: the cells the last build refined for ground prints, so a new stamp over them needs no
-            // rebuild.
+            // GPU prints
             public bool[] BuiltDetail;
-
             public float[] RefinedAt;
-
-            // Surface preparation ahead of publishing (PrepareSurfaceSlice).
+            // Surface preparation ahead of publishing (PrepareSurfaceSlice)
             public bool PublishQueued;
             public int PrepareStep;
 
-            // Searched for stair flights (VoxelStairFlights.cs); flights stay registered for the raid.
+            // Searched for stair flights (VoxelStairFlights.cs)
             public bool StairsScanned;
             public int StairScanCursor;
             public int StairScanSeeds;

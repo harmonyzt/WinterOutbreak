@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace WinterOutbreak
 {
-    // Woods bunker stairwells and trenches keep the game's own winter shading instead of voxel snow.
+    // Woods bunker stairwells and trenches keep the game's own winter shading instead of voxel snow
     internal sealed partial class VoxelSnowArea
     {
         private const string BunkerName = "bunker_forest_02";
@@ -56,7 +56,7 @@ namespace WinterOutbreak
             return kind;
         }
 
-        // Only cells whose search met a bunker pay for the neighbour count.
+        // Only cells whose search met a bunker pay for the neighbour count
         private bool IsTrenchHidden(int x, int z, Column column)
         {
             if (!column.BunkerPart)

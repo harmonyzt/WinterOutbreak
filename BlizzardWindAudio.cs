@@ -11,6 +11,7 @@ namespace WinterOutbreak
 {
     public sealed partial class WinterOutbreakPlugin
     {
+        // First-person wind gusting around the ears, only outdoors and only in a Blizzard
         private const string BlizzardWindFile = "sound/blizzard_wind.ogg";
         private const float BlizzardWindFadeIn = 2.5f;
         private const float BlizzardWindFadeOut = 1.5f;
@@ -24,14 +25,15 @@ namespace WinterOutbreak
 
         private void BindBlizzardWindSettings()
         {
-            _blizzardWindVolume = Config.Bind("Blizzard Wind", "Volume", 100,
-                new ConfigDescription("Volume of the wind around you when outdoors in a Blizzard.", new AcceptableValueRange<int>(0, 100)));
+            _blizzardWindVolume = BindSetting(StormsSection, "Blizzard Wind Volume", 100,
+                "Volume of the wind around you when outdoors in a Blizzard.", 5,
+                range: new AcceptableValueRange<int>(0, 100), oldSection: "Blizzard Wind", oldKey: "Volume");
         }
 
         private void UpdateBlizzardWind(Player player)
         {
-            bool wanted = player != null && _preset == Blizzard && player.HealthController?.IsAlive == true && player.Environment != EnvironmentType.Indoor
-                          && _blizzardWindVolume.Value > 0;
+            bool wanted = player != null && _preset == Blizzard && player.HealthController?.IsAlive == true
+                && player.Environment != EnvironmentType.Indoor && _blizzardWindVolume.Value > 0;
 
             if (wanted && !_blizzardWindLoadStarted)
             {
@@ -58,7 +60,7 @@ namespace WinterOutbreak
             float fadeTime = wanted ? BlizzardWindFadeIn : BlizzardWindFadeOut;
             _blizzardWindFade = Mathf.MoveTowards(_blizzardWindFade, wanted ? 1f : 0f, Time.deltaTime / fadeTime);
 
-            // An eased curve sounds smoother than a straight line, so the wind swells in and dies away.
+            // An eased curve sounds smoother than a straight line, so the wind swells in and dies away
             float eased = _blizzardWindFade * _blizzardWindFade * (3f - 2f * _blizzardWindFade);
             source.volume = eased * _blizzardWindVolume.Value / 100f;
 
@@ -82,7 +84,7 @@ namespace WinterOutbreak
             string path = ResourcePath(BlizzardWindFile);
             using var request = UnityWebRequestMultimedia.GetAudioClip(new Uri(path).AbsoluteUri, AudioType.OGGVORBIS);
 
-            // Keep it compressed in memory, the way EFT keeps its own ambience clips.
+            // Keep it compressed in memory, the way EFT keeps its own ambience clips
             ((DownloadHandlerAudioClip)request.downloadHandler).compressed = true;
             yield return request.SendWebRequest();
 
@@ -124,7 +126,7 @@ namespace WinterOutbreak
             _blizzardWindFade = 0f;
         }
 
-        // The same mixer route as EFT's wind, so the game's ambient volume and headsets apply to it too.
+        // The same mixer route as EFT's wind, so the game's ambient volume and headsets apply to it too
         private AudioMixerGroup WindMixerGroup()
         {
             if (_windBlender != null && _windBlender._outputMixerGroup != null)

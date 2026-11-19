@@ -16,18 +16,14 @@ namespace WinterOutbreak
         private const float FireTemperature = 36.9f;
         private const float LowestTemperature = 30f;
         private const float ExposureInterval = 0.5f;
-
         private const float MaxSnowSlowdown = 0.25f;
-
-        // Snow slows you whether you walk or stand in it:
+        // Snow slows you whether you walk or stand in it
         private const float SnowSlowdownWalkingSeconds = 8f;
         private const float SnowSlowdownStandingSeconds = 60f;
         private const float SnowRecoverySeconds = 45f;
         private const float ShallowerSnowRecoverySeconds = 20f;
         private const float MinimumSlowingSnow = 0.02f;
-
         private const float FullySlowingSnow = 0.25f;
-
         // Warm gear
         private const float GearCoolingReduction = 0.45f;
         private const float GearWarmingBoost = 0.6f;
@@ -64,11 +60,14 @@ namespace WinterOutbreak
 
         private void BindFrostbiteSettings()
         {
-            _frostbiteEnabled = Config.Bind("Frostbite", "Enabled", true,
+            _frostbiteEnabled = BindSetting(SurvivalSection, "Frostbite", true,
                 "Your body cools down outdoors in winter raids: Low Temperature, then Frostbite, which slowly costs "
-                + "health (up to 25 HP a minute) until you warm up indoors or by a fire.");
+                + "health (up to 25 HP a minute) until you warm up indoors or by a fire.", 1,
+                oldSection: "Frostbite", oldKey: "Enabled");
 
-            _gradualFrostbite = Config.Bind("Frostbite", "Gradual Build Up", true, "The frost on the screen builds up slowly after Frostbite starts, instead of all at once.");
+            _gradualFrostbite = BindSetting(SurvivalSection, "Gradual Frostbite", true,
+                "The frost on the screen builds up slowly after Frostbite starts, instead of all at once.", 2,
+                advanced: true, oldSection: "Frostbite", oldKey: "Gradual Build Up");
 
             _frostbiteDelay = new Fixed<float>(120f);
             _frostbiteBuildUp = new Fixed<float>(60f);
@@ -86,9 +85,12 @@ namespace WinterOutbreak
             _warmingUp = RegisterEffect<WinterWarmingUp>("Warming Up", "effect_warm.png");
             _snowSlowed = RegisterEffect<WinterSnowSlowed>("Slowed by Snow", "effect_slowed.png");
             _gearWarmth = RegisterEffect<WinterGearWarmth>("Dressed for the Cold", "effect_warmgear.png");
-            EffectsManager.ErgonomicsPenalties.Add(PluginId, health => _lowTemperature.Find(health, EBodyPart.Head) != null ? -0.15f : 0f);
-            EffectsManager.MovementSpeedPenalties.Add(SnowSpeedPenalty,
-                health => _appliedSnowSlowdown > 0f && _snowSlowed.FindExisting(health, EBodyPart.Head) != null ? 1f - MaxSnowSlowdown * _appliedSnowSlowdown : (float?)null);
+            EffectsManager.ErgonomicsPenalties.Add(PluginId, health =>
+                _lowTemperature.Find(health, EBodyPart.Head) != null ? -0.15f : 0f);
+            EffectsManager.MovementSpeedPenalties.Add(SnowSpeedPenalty, health =>
+                _appliedSnowSlowdown > 0f && _snowSlowed.FindExisting(health, EBodyPart.Head) != null
+                    ? 1f - MaxSnowSlowdown * _appliedSnowSlowdown
+                    : (float?)null);
             _fires.FireFound = position => _voxelSnow?.AddFire(position, false);
         }
 
@@ -98,7 +100,8 @@ namespace WinterOutbreak
             EffectsManager.MovementSpeedPenalties.Remove(SnowSpeedPenalty);
         }
 
-        private static EffectRegistration RegisterEffect<T>(string name, string icon) where T : ActiveHealthController.Effect, new()
+        private static EffectRegistration RegisterEffect<T>(string name, string icon)
+            where T : ActiveHealthController.Effect, new()
         {
             return EffectsManager.RegisterEffect<T>(typeof(WinterOutbreakPlugin).Assembly, new EffectOptions
             {
@@ -168,8 +171,7 @@ namespace WinterOutbreak
             float depth = 0f;
             bool inSnow = grounded && TryGetVoxelSnowDepth(position, out depth) && depth >= MinimumSlowingSnow;
 
-            // Deeper snow slows more, up to the full penalty at 25 cm. The level moves toward that: fast while walking
-            // through it, slowly while standing in it, and it wears off slowly once out of it.
+            // Deeper snow slows more, up to the full penalty at 25 cm
             float target = inSnow ? Mathf.InverseLerp(MinimumSlowingSnow, FullySlowingSnow, depth) : 0f;
             if (_snowSlowdown < target)
             {
@@ -188,7 +190,7 @@ namespace WinterOutbreak
 
         private void ApplySnowSlowdown(Player player)
         {
-            // Two-percent steps keep the speed cap from being rebuilt on every tick.
+            // Two-percent steps keep the speed cap from being rebuilt on every tick
             float applied = Mathf.Ceil(_snowSlowdown * 50f) / 50f;
             if (Mathf.Approximately(applied, _appliedSnowSlowdown))
             {
@@ -241,7 +243,8 @@ namespace WinterOutbreak
                 return;
             }
 
-            if (!_healingLimb.HasValue || health.IsBodyPartDestroyed(_healingLimb.Value) || health.GetBodyPartHealth(_healingLimb.Value).AtMaximum)
+            if (!_healingLimb.HasValue || health.IsBodyPartDestroyed(_healingLimb.Value)
+                || health.GetBodyPartHealth(_healingLimb.Value).AtMaximum)
             {
                 _healingLimb = LimbPriority.PickNextLimb(health);
             }
@@ -266,7 +269,7 @@ namespace WinterOutbreak
             float current = health.Temperature.Current;
             float target = nearFire ? FireTemperature : indoors ? NormalTemperature : LowestTemperature;
             float rate = nearFire ? _fireWarming.Value : indoors ? _indoorWarming.Value : _outdoorCooling.Value;
-            // Warm gear keeps body heat in: slower cooling outside, faster warming inside and by a fire.
+            // Warm gear keeps body heat in
             rate *= nearFire || indoors ? 1f + GearWarmingBoost * _gearWarmthScore : 1f - GearCoolingReduction * _gearWarmthScore;
             float change = rate * elapsed / 60f;
             float delta = target - current;
@@ -298,21 +301,21 @@ namespace WinterOutbreak
             float frostbiteTime = _timeAtLowTemperature - _frostbiteDelay.Value;
             if (frostbiteTime >= 0f)
             {
-                _frostbiteSeverity = _gradualFrostbite.Value ? Mathf.Lerp(0.25f, 1f, frostbiteTime / _frostbiteBuildUp.Value) : 1f;
+                _frostbiteSeverity = _gradualFrostbite.Value
+                    ? Mathf.Lerp(0.25f, 1f, frostbiteTime / _frostbiteBuildUp.Value)
+                    : 1f;
                 SetEffect(_customFrostbite, health, true);
                 ApplyColdDamage(health, elapsed);
             }
         }
 
         // Once Frostbite has set in, the body loses up to 25 HP a minute, scaled by how far the frostbite has built up
-        // and how close the body is to the lowest temperature. The loss goes straight off the limbs, extremities first,
-        // without the pain, bleed or fracture rolls of a hit; a limb at zero blacks out, and the head or chest at zero
-        // is death.
+        // and how close the body is to the lowest temperature
         private const float MaxColdDamagePerMinute = 25f;
-
         private static readonly EBodyPart[] ColdDamageOrder =
         {
-            EBodyPart.LeftArm, EBodyPart.RightArm, EBodyPart.LeftLeg, EBodyPart.RightLeg, EBodyPart.Stomach, EBodyPart.Chest, EBodyPart.Head
+            EBodyPart.LeftArm, EBodyPart.RightArm, EBodyPart.LeftLeg, EBodyPart.RightLeg, EBodyPart.Stomach,
+            EBodyPart.Chest, EBodyPart.Head
         };
 
         private void ApplyColdDamage(ActiveHealthController health, float elapsed)
@@ -324,7 +327,7 @@ namespace WinterOutbreak
                 return;
             }
 
-            // A random extremity among those that still have health, then the torso and head only when none is left.
+            // A random extremity among those that still have health, then the torso and head only when none is left
             int start = Random.Range(0, 4);
             for (int i = 0; i < ColdDamageOrder.Length; i++)
             {
@@ -334,11 +337,7 @@ namespace WinterOutbreak
                     continue;
                 }
 
-                var damage = new DamageInfo
-                {
-                    DamageType = EDamageType.Stimulator,
-                    Damage = amount
-                };
+                var damage = new DamageInfo { DamageType = EDamageType.Stimulator, Damage = amount };
                 health.ChangeHealth(part, -amount, damage);
                 if (health.GetBodyPartHealth(part).AtMinimum)
                 {
@@ -387,9 +386,7 @@ namespace WinterOutbreak
         }
 
         /// <summary>
-        /// 0 to 1: how well the worn gear keeps body heat in. Each piece adds a little; body armour and a backpack
-        /// (about 0.4 together) are enough to show the buff. A rig counts less than armour, an armoured rig nearly as
-        /// much. Fully kitted (helmet, armour, rig, backpack, headset, face cover) is about 0.9.
+        /// 0 to 1: how well the worn gear keeps body heat in.
         /// </summary>
         private static float GearWarmth(Player player)
         {
@@ -442,7 +439,8 @@ namespace WinterOutbreak
         {
             private static System.Collections.Generic.IEnumerable<System.Reflection.MethodBase> TargetMethods()
             {
-                yield return AccessTools.Method(typeof(ActiveHealthController), nameof(ActiveHealthController.Store), new[] { typeof(Profile.HealthInfo) });
+                yield return AccessTools.Method(typeof(ActiveHealthController), nameof(ActiveHealthController.Store),
+                    new[] { typeof(Profile.HealthInfo) });
                 yield return AccessTools.Method(typeof(ActiveHealthController), nameof(ActiveHealthController.Store),
                     new[] { typeof(GlobalConfiguration.TransitGlobalSettings), typeof(Profile.HealthInfo) });
             }
@@ -453,12 +451,14 @@ namespace WinterOutbreak
                 var temperature = __result?.Temperature;
                 if (plugin?._temperatureHealth == __instance && temperature != null)
                 {
-                    temperature.Current = Mathf.Clamp(__instance.Temperature.Current - plugin._environmentTemperatureChange, temperature.Minimum, temperature.Maximum);
+                    temperature.Current = Mathf.Clamp(__instance.Temperature.Current - plugin._environmentTemperatureChange,
+                        temperature.Minimum, temperature.Maximum);
                 }
             }
         }
 
-        [HarmonyPatch(typeof(EffectsController.FrostbiteAccumulator), MethodType.Constructor, typeof(EffectsController), typeof(FrostbiteEffect), typeof(System.Type[]))]
+        [HarmonyPatch(typeof(EffectsController.FrostbiteAccumulator), MethodType.Constructor,
+            typeof(EffectsController), typeof(FrostbiteEffect), typeof(System.Type[]))]
         private static class FrostbiteVisualTypesPatch
         {
             private static void Prefix(ref System.Type[] __2)
@@ -473,7 +473,8 @@ namespace WinterOutbreak
         [HarmonyPatch(typeof(EffectsController.FrostbiteAccumulator), "UpdateAmount")]
         private static class FrostbiteVisualAmountPatch
         {
-            private static void Prefix(System.Collections.Generic.List<IHealthEffect> ___ActiveEffects, ref float ___MaxEffectValue, out float __state)
+            private static void Prefix(System.Collections.Generic.List<IHealthEffect> ___ActiveEffects,
+                ref float ___MaxEffectValue, out float __state)
             {
                 __state = ___MaxEffectValue;
                 bool lowTemperature = false;

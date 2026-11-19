@@ -26,7 +26,7 @@ namespace WinterOutbreak
                 if (summary._temperature == null && healthStats != null && healthStats._temperature != null
                     && summary._energy != null && summary._energy.transform is RectTransform energy)
                 {
-                    // A sibling of the vanilla row, outside its layout
+                    // A sibling of the vanilla row, outside its layout, so the row keeps its original spacing
                     var temperature = Instantiate(healthStats._temperature, energy.parent, false);
                     temperature.name = InventoryTemperatureName;
                     var element = temperature.GetComponent<LayoutElement>()
@@ -56,7 +56,8 @@ namespace WinterOutbreak
 
                 LayoutRebuilder.ForceRebuildLayoutImmediate(row);
 
-                // Line up with the indicator
+                // Line up with the row's leftmost indicator (weight, where the row has it), one indicator height above
+                // it
                 RectTransform first = energy;
                 foreach (var candidate in new EFT.UI.Health.HealthParameterPanel[] { summary._weight, summary._overallHealth })
                 {

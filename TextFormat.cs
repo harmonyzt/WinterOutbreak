@@ -4,6 +4,7 @@ using UnityEngine;
 
 namespace WinterOutbreak
 {
+    // Small text helpers for log messages and saved files
     public sealed partial class WinterOutbreakPlugin
     {
         private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;

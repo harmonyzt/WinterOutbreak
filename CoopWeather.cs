@@ -4,8 +4,7 @@ using UnityEngine;
 namespace WinterOutbreak
 {
     /// <summary>
-    /// Fika: the host rolls the storm and runs the snow depth timeline; clients take both from it, so bots (which live
-    /// on the host) and every player share one raid. Bonfires are passed along the same way.
+    /// Fika
     /// </summary>
     public sealed partial class WinterOutbreakPlugin
     {
@@ -21,8 +20,7 @@ namespace WinterOutbreak
         internal static WinterOutbreakPlugin Instance => _plugin;
 
         /// <summary>
-        /// Picks this raid's storm. A Fika client waits for the host's and returns false until it arrives, rolling its
-        /// own only if the host never sends one (no Winter Outbreak there).
+        /// Picks this raid's storm.
         /// </summary>
         private bool SelectRaidWeather(bool raidPreparing)
         {
@@ -66,7 +64,7 @@ namespace WinterOutbreak
         }
 
         /// <summary>
-        /// Host: repeats the weather every few seconds, so late joiners and clock drift are covered.
+        /// Host
         /// </summary>
         private void ShareWeather()
         {
@@ -106,7 +104,7 @@ namespace WinterOutbreak
         }
 
         // The sky goes along with the weather once the host has decided it, so every player sees the same aurora and
-        // the same amount of extra Blizzard snow.
+        // the same amount of extra Blizzard snow
         private string SkyText()
         {
             if (!ReferenceEquals(_auroraDecidedFor, _raid) || !ReferenceEquals(_extraFlakesRaid, _raid))
@@ -118,7 +116,7 @@ namespace WinterOutbreak
                 _auroraThisRaid ? 1 : 0, _auroraGreenThisRaid ? 1 : 0, _extraFlakesPercent);
         }
 
-        // A client takes the host's sky when it has arrived. False while it is still on its way.
+        // A client takes the host's sky when it has arrived
         private bool TryGetHostSky(out bool aurora, out bool green, out float flakes)
         {
             aurora = false;
@@ -143,7 +141,7 @@ namespace WinterOutbreak
             return true;
         }
 
-        // A client waits for the host's sky until the same timeout as the weather, then decides its own.
+        // A client waits for the host's sky until the same timeout as the weather, then decides its own
         private bool WaitingForHostSky => CoopSupport.IsClient && _weatherWaitStarted >= 0f
             && Time.time - _weatherWaitStarted < HostWeatherTimeout;
 
@@ -154,7 +152,7 @@ namespace WinterOutbreak
             ReceiveHostIce(weather.Ice);
             if (_rolled && !_presetFromHost)
             {
-                // Rolled locally after the timeout; keep it rather than switching storms mid-raid.
+                // Rolled locally after the timeout
                 return;
             }
 

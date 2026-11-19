@@ -5,6 +5,11 @@ using UnityEngine;
 
 namespace WinterOutbreak
 {
+    /// <summary>
+    /// The bonfire from EFT's Customs map (Bonfire_01_on in custom_Light), ripped into Resources/bonfire.bundle by
+    /// WinterOutbreakShaders' BonfireImporter: its log and stone meshes, scorch decal and the Small_Fire flames, sparks
+    /// and smoke.
+    /// </summary>
     internal static class BonfirePrefab
     {
         private const string PrefabPath = "assets/bonfire/winterstormsbonfire.prefab";
@@ -31,7 +36,7 @@ namespace WinterOutbreak
             }
         }
 
-        // Ambient light colour of the original fire, brightened so its strongest channel is 1.
+        // Ambient light colour of the original fire, brightened so its strongest channel is 1
         internal static Color LightColor
         {
             get
@@ -48,7 +53,7 @@ namespace WinterOutbreak
             }
         }
 
-        // The bundle stays loaded for the whole game session; only the materials made from it are per raid.
+        // The bundle stays loaded for the whole game session
         private static void Load()
         {
             if (_loadTried)
@@ -57,7 +62,8 @@ namespace WinterOutbreak
             }
 
             _loadTried = true;
-            string path = Path.Combine(Path.GetDirectoryName(typeof(BonfirePrefab).Assembly.Location), "Resources", "bonfire.bundle");
+            string path = Path.Combine(Path.GetDirectoryName(typeof(BonfirePrefab).Assembly.Location),
+                "Resources", "bonfire.bundle");
             if (!File.Exists(path))
             {
                 BarrelSettings.Log.LogWarning("Bonfire: Resources/bonfire.bundle is missing, using the built-in bonfire.");
@@ -98,7 +104,7 @@ namespace WinterOutbreak
 
             foreach (var renderer in ghost.GetComponentsInChildren<MeshRenderer>())
             {
-                // Only the first submesh: the scorch decal would otherwise turn into a big green square.
+                // Only the first submesh
                 renderer.sharedMaterials = new[] { renderer.sharedMaterials[0] };
                 renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             }
@@ -139,7 +145,7 @@ namespace WinterOutbreak
             }
         }
 
-        // Rebuilds a stand-in material on EFT's shader. Kept as the stand-in when the shader is not loaded.
+        // Rebuilds a stand-in material on EFT's shader
         private static Material GameMaterial(Material standIn)
         {
             if (standIn == null)
@@ -160,10 +166,7 @@ namespace WinterOutbreak
                 return standIn;
             }
 
-            var material = new Material(shader)
-            {
-                name = standIn.name
-            };
+            var material = new Material(shader) { name = standIn.name };
 
             foreach (var texture in (JObject)entry["textures"])
             {

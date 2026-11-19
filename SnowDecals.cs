@@ -4,8 +4,7 @@ using UnityEngine;
 namespace WinterOutbreak
 {
     // EFT draws its static ground decals (grime, oil stains, road dirt) into the deferred buffers after opaque
-    // geometry, projected through a box. A floor decal whose footprint is mostly under ground snow is switched off
-    // (StaticDeferredDecal unregisters itself in OnDisable) and switched back on when the snow is cleared.
+    // geometry, projected through a box
     internal sealed partial class VoxelSnowArea
     {
         private const float DecalHideDepth = 0.04f;
@@ -15,8 +14,6 @@ namespace WinterOutbreak
         private List<StaticDeferredDecal> _floorDecals;
         private readonly List<StaticDeferredDecal> _hiddenDecals = new List<StaticDeferredDecal>();
         private int _decalCursor;
-        private int _staticDecalCount;
-        private int _forwardVerticalDecals;
 
         private List<Renderer> _floorOverlays;
         private readonly List<Renderer> _hiddenOverlays = new List<Renderer>();
@@ -34,13 +31,7 @@ namespace WinterOutbreak
                 _floorDecals = new List<StaticDeferredDecal>();
                 foreach (var decal in Object.FindObjectsOfType<StaticDeferredDecal>())
                 {
-                    _staticDecalCount++;
-                    if (Mathf.Abs(decal.transform.forward.y) >= 0.7f)
-                    {
-                        _forwardVerticalDecals++;
-                    }
-
-                    // The decal box projects along its local up axis; walls and props keep their decals.
+                    // The decal box projects along its local up axis
                     if (decal.enabled && Mathf.Abs(decal.transform.up.y) >= 0.7f)
                     {
                         _floorDecals.Add(decal);
@@ -137,8 +128,7 @@ namespace WinterOutbreak
             return false;
         }
 
-        // Snow at any of nine points across the overlay's bounds. A puddle with snow anywhere on it is outdoors, and
-        // one indoors finds no snow at all.
+        // Snow at any of nine points across the overlay's bounds
         private bool IsOverlayUnderSnow(Bounds bounds)
         {
             for (int i = -1; i <= 1; i++)
@@ -167,7 +157,7 @@ namespace WinterOutbreak
         }
 
         // Covered when at least three of five points across the decal (center and its four half-way points) have ground
-        // snow whose ground lies inside the decal box.
+        // snow whose ground lies inside the decal box
         private bool IsUnderSnow(Transform decal)
         {
             Vector3 center = decal.position;

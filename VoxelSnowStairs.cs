@@ -2,9 +2,7 @@ using UnityEngine;
 
 namespace WinterOutbreak
 {
-    // Stair builder.
-    //
-    // Cells next to each other read mostly the same treads, so their planes agree.
+    // Stair builder
     internal sealed partial class VoxelSnowArea
     {
         internal const byte ShapeStairProbe = 6;
@@ -12,9 +10,6 @@ namespace WinterOutbreak
         private const float StairProbeStep = 0.08f;
         private const float StairProbeMinSlope = 0.25f;
         private const float StairProbeMaxSlope = 1.0f;
-
-        internal long StairProbeCells;
-        internal long StairProbeAccepted;
 
         private readonly float[] _probeS = new float[2 * StairProbeHalf + 1];
         private readonly float[] _probeH = new float[2 * StairProbeHalf + 1];
@@ -38,7 +33,7 @@ namespace WinterOutbreak
             ground = own;
             normal = Vector3.up;
 
-            // 1. A coarse plane through the base ground around the cell says whether this could be a staircase.
+            // A coarse plane through the base ground around the cell says whether this could be a staircase
             double n = 0, sx = 0, sz = 0, sh = 0, sxx = 0, szz = 0, sxz = 0, sxh = 0, szh = 0;
             float low = float.PositiveInfinity, high = float.NegativeInfinity;
             for (int dz = -StairReach; dz <= StairReach; dz++)
@@ -97,10 +92,8 @@ namespace WinterOutbreak
                 return false;
             }
 
-            // The coarse slope of a staircase sampled mostly at street level overstates the real one.
+            // The coarse slope of a staircase sampled mostly at street level overstates the real one
             slope = Mathf.Min(slope, StairProbeMaxSlope);
-
-            StairProbeCells++;
 
             var uphill = new Vector2((float)b, (float)c).normalized;
             float baseY = _origin.y + own + (float)a;
@@ -121,8 +114,7 @@ namespace WinterOutbreak
                     continue;
                 }
 
-                // Stacked boards and logs are not stairs; probing them shaped the snow on the sawmill's woodpile into
-                // steps.
+                // Stacked boards and logs are not stairs
                 if (IsLoosePile(hit.collider))
                 {
                     ground = own;
@@ -130,7 +122,8 @@ namespace WinterOutbreak
                     return false;
                 }
 
-                // EFT stairs often carry a smooth walking ramp on the low-poly layer. That ramp is exactly the surface deep snow should follow.
+                // EFT stairs often carry a smooth walking ramp on the low-poly layer over thin or missing tread
+                // colliders
                 bool walkRamp = hit.normal.y >= 0.55f && hit.normal.y < 0.95f
                     && (_fallbackGroundMask & (1 << hit.collider.gameObject.layer)) != 0;
                 if (!walkRamp && hit.normal.y < 0.90f)
@@ -138,7 +131,7 @@ namespace WinterOutbreak
                     continue;
                 }
 
-                // A hit far below the coarse slope fell through a gap between treads.
+                // A hit far below the coarse slope fell through a gap between treads
                 if (hit.point.y < expected - 0.60f)
                 {
                     continue;
@@ -156,8 +149,7 @@ namespace WinterOutbreak
                 return false;
             }
 
-            // 3. Fit the nosing line: least squares, drop samples well below it (rear of a tread under a nosing, a
-            //    missing collider strip), fit again, then lift the line onto the tread edges.
+            // Fit the nosing line
             if (!FitLine(count, out float p, out float q))
             {
                 return false;
@@ -186,7 +178,7 @@ namespace WinterOutbreak
                 lift = Mathf.Max(lift, _probeH[i] - (p + q * _probeS[i]));
             }
 
-            // A walking ramp already lies on the nosings; treads need lifting onto their edges.
+            // A walking ramp already lies on the nosings
             float surface = p + (onRamp ? 0f : Mathf.Min(lift, 0.12f)) - _origin.y;
             if (Mathf.Abs(surface - own) > 1.0f)
             {
@@ -195,7 +187,6 @@ namespace WinterOutbreak
 
             ground = surface;
             normal = new Vector3(-q * uphill.x, 1f, -q * uphill.y).normalized;
-            StairProbeAccepted++;
             return true;
         }
 
@@ -203,7 +194,7 @@ namespace WinterOutbreak
         private int _levelCount;
 
         // Distinct height levels among the collected neighbour heights (6 cm clusters), and the biggest gap between
-        // neighbouring levels. A curb or a single low step gives two levels and a small gap.
+        // neighbouring levels
         private int CountLevels(out float biggestStep)
         {
             System.Array.Sort(_probeLevels, 0, _levelCount);

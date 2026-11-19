@@ -32,8 +32,7 @@ namespace WinterOutbreak
         }
 
         /// <summary>
-        /// Seamless wispy noise for the haze cards. It tiles in both axes so the cards can scroll it with the wind
-        /// indefinitely.
+        /// Seamless wispy noise for the haze cards.
         /// </summary>
         internal static Texture2D CreateHazeTexture()
         {

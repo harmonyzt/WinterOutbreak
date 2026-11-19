@@ -13,7 +13,8 @@ namespace WinterOutbreak
         private static readonly int FlakeSizeId = Shader.PropertyToID("_FlakesSize");
         private static readonly int SideSpeedId = Shader.PropertyToID("_SideSpeed");
 
-        private readonly List<(MeshRenderer Renderer, Mesh Mesh)> _blizzardFlakes = new List<(MeshRenderer, Mesh)>();
+        private readonly List<(MeshRenderer Renderer, Mesh Mesh)> _blizzardFlakes =
+            new List<(MeshRenderer, Mesh)>();
         private bool _blizzardFlakesFailed;
 
         private bool IsBlizzard => _weather != null && _preset == Blizzard;
@@ -22,7 +23,7 @@ namespace WinterOutbreak
         private object _extraFlakesRaid;
         private float _extraFlakesPercent;
 
-        // Rolled once per raid; a Fika client takes the host's amount.
+        // Rolled once per raid
         private void DecideExtraFlakes()
         {
             if (ReferenceEquals(_extraFlakesRaid, _raid) || _raid == null)
@@ -71,18 +72,20 @@ namespace WinterOutbreak
             int flakesPerLayer = Mathf.RoundToInt(FlakesPerLayer * ExtraFlakesPercentThisRaid() / 100f);
             if (_blizzardFlakes.Count == 0 && flakesPerLayer < 256)
             {
-                // Wind-driven snow carries storm density now; the extra flake layers are optional.
+                // Wind-driven snow carries storm density now
                 return;
             }
 
             if (_blizzardFlakes.Count == 0)
             {
-                // The native mesh generator randomizes each layer. Preserve the raid's random stream.
+                // The native mesh generator randomizes each layer
                 var randomState = UnityEngine.Random.state;
                 try
                 {
                     var properties = new MaterialPropertyBlock();
-                    float sideSpeed = Mathf.LerpUnclamped(flakes.MinMaxSideSpeed.x, flakes.MinMaxSideSpeed.y, Blizzard.Snowfall) + Blizzard.StormFactor * Blizzard.SideSpeed;
+                    float sideSpeed = Mathf.LerpUnclamped(flakes.MinMaxSideSpeed.x,
+                        flakes.MinMaxSideSpeed.y, Blizzard.Snowfall)
+                        + Blizzard.StormFactor * Blizzard.SideSpeed;
 
                     for (int pair = 0; pair < 2; pair++)
                     {
@@ -93,13 +96,14 @@ namespace WinterOutbreak
                             var mesh = renderer.GetComponent<MeshFilter>().sharedMesh;
                             _blizzardFlakes.Add((renderer, mesh));
 
-                            Vector2 size = Vector2.LerpUnclamped(flakes.FlakesSizeMin, flakes.FlakesSizeMax, Blizzard.Snowfall);
+                            Vector2 size = Vector2.LerpUnclamped(flakes.FlakesSizeMin,
+                                flakes.FlakesSizeMax, Blizzard.Snowfall);
                             if (layerIndex == 1)
                             {
                                 size *= flakes.FlakesFarSizeFactor;
                             }
 
-                            // Mix finer snow with wider flakes and break up synchronized sideways motion.
+                            // Mix finer snow with wider flakes and break up synchronized sideways motion
                             float sizeScale = pair == 0 ? 0.68f : 1.18f;
                             float width = size.x * sizeScale * (0.8f + (float)_random.NextDouble() * 0.4f);
                             float length = size.y * sizeScale * (0.8f + (float)_random.NextDouble() * 0.4f);
@@ -174,7 +178,7 @@ namespace WinterOutbreak
                     return;
                 }
 
-                // The normal renderer can keep its own density when weather debug is off.
+                // The normal renderer can keep its own density when weather debug is off
                 __state = __instance.GlobalDensity;
                 __instance.GlobalDensity = Mathf.Max(__instance.GlobalDensity, BlizzardFogFloor);
             }
@@ -191,7 +195,8 @@ namespace WinterOutbreak
         [HarmonyPatch(typeof(SnowFlakes), nameof(SnowFlakes.Update))]
         private static class SnowFlakesPatch
         {
-            private static void Prefix(SnowFlakes __instance, MeshRenderer[] ____flakesInStorm, out (bool Applied, float Factor, float Speed, Vector2 SizeMax) __state)
+            private static void Prefix(SnowFlakes __instance, MeshRenderer[] ____flakesInStorm,
+                out (bool Applied, float Factor, float Speed, Vector2 SizeMax) __state)
             {
                 __state = default;
                 var plugin = _plugin;
@@ -206,12 +211,13 @@ namespace WinterOutbreak
 
                 if (plugin.IsBlizzard)
                 {
-                    // Stock flake size; wind-driven snow carries the storm's density now.
+                    // Stock flake size
                     plugin.UpdateBlizzardFlakes(__instance, ____flakesInStorm);
                 }
             }
 
-            private static void Finalizer(SnowFlakes __instance, (bool Applied, float Factor, float Speed, Vector2 SizeMax) __state)
+            private static void Finalizer(SnowFlakes __instance,
+                (bool Applied, float Factor, float Speed, Vector2 SizeMax) __state)
             {
                 if (__state.Applied)
                 {

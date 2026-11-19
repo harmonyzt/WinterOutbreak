@@ -104,7 +104,7 @@ namespace WinterOutbreak
                     or MaterialType.GrassLow or MaterialType.GrassHigh or MaterialType.Gravel or MaterialType.Swamp;
             }
 
-            // Untagged terrain can still carry soil. Leave unclassified props to the game's blast effect.
+            // Untagged terrain can still carry soil
             return hit.collider is TerrainCollider;
         }
 
@@ -177,7 +177,7 @@ namespace WinterOutbreak
                     continue;
                 }
 
-                // Resting means it moved less than 2 cm between checks for a quarter second.
+                // Resting means it moved less than 2 cm between checks for a quarter second
                 Vector3 position = live.Grenade.transform.position;
                 bool still = (position - live.LastPosition).sqrMagnitude < 0.02f * 0.02f;
                 live.LastPosition = position;
@@ -198,7 +198,7 @@ namespace WinterOutbreak
                     continue;
                 }
 
-                // Only on the ground: a grenade in flight leaves nothing.
+                // Only on the ground: a grenade in flight leaves nothing
                 if (!Physics.Raycast(position + Vector3.up * 0.1f, Vector3.down, out var ground, 0.32f, floorMask, triggers)
                     || ground.normal.y < 0.5f || !_voxelSnow.TryGetDepth(ground.point, out float depth) || depth < 0.02f)
                 {
@@ -215,8 +215,7 @@ namespace WinterOutbreak
         [HarmonyPatch]
         private static class GrenadeTrackPatch
         {
-            // Grenade declares one Init (settings, profile id, throw weapon, time spent, ballistics, planted);
-            // SmokeGrenade overrides it and calls this one, so smoke grenades are tracked too.
+            // Grenade declares one Init (settings, profile id, throw weapon, time spent, ballistics, planted)
             private static System.Reflection.MethodBase TargetMethod()
             {
                 return AccessTools.DeclaredMethod(typeof(Grenade), nameof(Grenade.Init));

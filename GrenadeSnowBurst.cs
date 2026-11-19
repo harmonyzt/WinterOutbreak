@@ -74,7 +74,7 @@ namespace WinterOutbreak
             int grainCount = count * GrainsPerParticle;
             for (int i = 0; i < grainCount; i++)
             {
-                // Distribute the spray around the entire blast with a random rotation per grenade.
+                // Distribute the spray around the entire blast with a random rotation per grenade
                 float angle = phase + i * 2.399963f;
                 var outward = new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle));
                 bool lofted = _random.NextDouble() < 0.24;
@@ -130,7 +130,7 @@ namespace WinterOutbreak
         }
 
         /// <summary>
-        /// Emits second billows that rise a moment after the blast. Call once per frame.
+        /// Emits second billows that rise a moment after the blast.
         /// </summary>
         public void Update(float now)
         {
@@ -155,8 +155,7 @@ namespace WinterOutbreak
                 return;
             }
 
-            // Every blast differs: overall size, a lean (the ground's slope, what the grenade lay against, the wind),
-            // and how much of it is plume versus ground ring.
+            // Every blast differs
             float scale = Range(0.75f, 1.25f);
             var lean = new Vector3(Range(-1f, 1f), 0f, Range(-1f, 1f)) * Range(0.4f, 2.2f);
             EmitPlume(origin, radius, power * scale, soilMix, light, lean, 1f);
@@ -187,9 +186,7 @@ namespace WinterOutbreak
         }
 
         /// <summary>
-        /// One puff's colour: snow light with its own share of dirt and a slight warm or cool shift, so a cloud is
-        /// mottled instead of one off-white. Loose ground (soilMix) adds more dirt; a quarter of puffs carry some even
-        /// in deep snow, from the ground under it.
+        /// One puff's colour
         /// </summary>
         private Color MixedPowder(Color light, float soilMix)
         {
@@ -203,12 +200,12 @@ namespace WinterOutbreak
             return color;
         }
 
-        // Plume: rises fast, hangs, spreads and drifts for a few seconds.
+        // Plume: rises fast, hangs, spreads and drifts for a few seconds
         private void EmitPlume(Vector3 origin, float radius, float power, float soilMix, Color light, Vector3 lean,
             float alphaScale)
         {
             // Snow is thrown up and out in a few random jets (where the blast found least resistance), plus a looser
-            // cloud, so every blast has its own shape.
+            // cloud, so every blast has its own shape
             int jets = _random.Next(3, 7);
             var jetDirections = new Vector3[jets];
             for (int j = 0; j < jets; j++)
@@ -246,7 +243,7 @@ namespace WinterOutbreak
             }
         }
 
-        // Ring: a low wall of powder racing outward along the ground, uneven around the blast.
+        // Ring
         private void EmitRing(Vector3 origin, float radius, float power, Color light, float phase)
         {
             float lobeA = Range(0f, 6.28f), lobeB = Range(0f, 6.28f);
@@ -259,7 +256,7 @@ namespace WinterOutbreak
                 }
 
                 float angle = phase + i * Mathf.PI * 2f / ringCount + Range(-0.18f, 0.18f);
-                // Two random lobes: some sectors throw far, others barely lift.
+                // Two random lobes: some sectors throw far, others barely lift
                 float lobe = 0.55f + 0.3f * Mathf.Sin(angle * 2f + lobeA) + 0.25f * Mathf.Sin(angle * 3f + lobeB);
                 var outward = new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle));
                 var position = origin + outward * radius * Range(0.25f, 0.6f) + Vector3.up * Range(0.05f, 0.35f);
@@ -271,7 +268,7 @@ namespace WinterOutbreak
             }
         }
 
-        // Clods: compacted chunks thrown high on arcs, readable against the sky.
+        // Clods: compacted chunks thrown high on arcs, readable against the sky
         private void EmitClods(Vector3 origin, float radius, float power, float soilMix, Color light, Vector3 lean)
         {
             Color dirt = Dirt(light);

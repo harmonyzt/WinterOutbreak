@@ -6,7 +6,7 @@ using UnityEngine;
 namespace WinterOutbreak
 {
     /// <summary>
-    /// Wind-driven snow: ground drift, lifted plumes, moving haze and the fog pulse all read one <see cref="StormWind"/>.
+    /// Wind-driven snow
     /// </summary>
     public sealed partial class WinterOutbreakPlugin
     {
@@ -34,17 +34,28 @@ namespace WinterOutbreak
 
         private void BindBlowingSnowSettings()
         {
-            const string section = "Blowing Snow";
+            const string oldSection = "Blowing Snow";
             var range = new AcceptableValueRange<float>(0f, 2f);
-            _blowingSnowEnabled = Config.Bind(section, "Enabled", true, "Wind blows snow along the ground, lifts it into plumes and gusts, and drives haze through the air.");
-            _blowingSnowCalmWinter = Config.Bind(section, "In Calm Winter Weather", true, "Also blow a little snow in winter raids without a storm.");
-            _groundDriftIntensity = Config.Bind(section, "Ground Drift", 1f, new ConfigDescription("Snow streaming along the ground. 0 turns it off.", range));
-            _plumeIntensity = Config.Bind(section, "Plumes", 1f, new ConfigDescription("Snow lifted into plumes, swirls and gust clouds. 0 turns it off.", range));
-            _hazeIntensity = Config.Bind(section, "Haze", 1f, new ConfigDescription("Fine snow drifting through the air. 0 turns it off.", range));
-            _farIntensity = Config.Bind(section, "Distant Snow", 1f, new ConfigDescription("Blowing snow far away from you (about 40 to 150 m). 0 turns it off.", range));
-            _gustStrength = Config.Bind(section, "Gust Strength", 1f, new ConfigDescription("How strong the gusts are. 0 keeps the wind steady.", range));
-            _extraBlizzardFlakes = Config.Bind(section, "Extra Blizzard Snowflakes", true,
-                "Adds a random amount of extra falling snow in Blizzard, different in each raid. Applies from the next raid.");
+
+            _blowingSnowEnabled = BindSetting(BlowingSnowSection, "Enabled", true,
+                "Wind blows snow along the ground, lifts it into plumes and gusts, and drives haze through the air.", 1,
+                oldSection: oldSection);
+            _blowingSnowCalmWinter = BindSetting(BlowingSnowSection, "In Calm Winter Weather", true,
+                "Also blow a little snow in winter raids without a storm.", 2, oldSection: oldSection);
+            _extraBlizzardFlakes = BindSetting(BlowingSnowSection, "Extra Blizzard Snowflakes", true,
+                "Adds a random amount of extra falling snow in Blizzard, different in each raid. Applies from the next raid.", 3,
+                oldSection: oldSection);
+
+            _groundDriftIntensity = BindSetting(BlowingSnowSection, "Ground Drift", 1f,
+                "Snow streaming along the ground. 0 turns it off.", 10, true, range, oldSection);
+            _plumeIntensity = BindSetting(BlowingSnowSection, "Plumes", 1f,
+                "Snow lifted into plumes, swirls and gust clouds. 0 turns it off.", 11, true, range, oldSection);
+            _hazeIntensity = BindSetting(BlowingSnowSection, "Haze", 1f,
+                "Fine snow drifting through the air. 0 turns it off.", 12, true, range, oldSection);
+            _farIntensity = BindSetting(BlowingSnowSection, "Distant Snow", 1f,
+                "Blowing snow far away from you (about 40 to 150 m). 0 turns it off.", 13, true, range, oldSection);
+            _gustStrength = BindSetting(BlowingSnowSection, "Gust Strength", 1f,
+                "How strong the gusts are. 0 keeps the wind steady.", 14, true, range, oldSection);
             _hazeCards = new Fixed<int>(18);
         }
 
@@ -57,7 +68,7 @@ namespace WinterOutbreak
 
             if (_preset == Snowstorm)
             {
-                return SnowstormShare;
+                return SnowstormEffectStrength;
             }
 
             return _blowingSnowCalmWinter.Value ? Mathf.Clamp01((wind.magnitude - 0.5f) / 4f) * 0.4f : 0f;
@@ -85,7 +96,8 @@ namespace WinterOutbreak
             }
 
             float dt = Time.deltaTime;
-            _stormWind.Update(weatherWind, severity, _gustStrength.Value, dt);
+            float gustRate = _preset == Snowstorm ? SnowstormGustRate : 1f;
+            _stormWind.Update(weatherWind, severity, gustRate, _gustStrength.Value, dt);
             if (!EnsureBlowingSnowEffects())
             {
                 return;
@@ -96,20 +108,22 @@ namespace WinterOutbreak
             bool outdoors = player.Environment == EnvironmentType.Outdoor;
             _snowLight = Color.Lerp(_snowLight, SampleSnowLight(), Mathf.Clamp01(dt * 2f));
 
-            // Effects centre on the player's feet so they hug the local ground.
+            // Effects centre on the player's feet so they hug the local ground
             Vector3 center = player.Position;
             Vector3 look = camera != null ? camera.transform.forward : _stormWind.Direction;
             _groundDrift.Update(_stormWind);
             _snowPlumes.Update(_stormWind, dt);
-            _snowSources.Update(center, eye, look, _stormWind, _windFlow, _groundDrift, _snowPlumes, _groundDriftIntensity.Value, _plumeIntensity.Value, _snowLight, outdoors, dt);
+            _snowSources.Update(center, eye, look, _stormWind, _windFlow, _groundDrift, _snowPlumes,
+                _groundDriftIntensity.Value, _plumeIntensity.Value, _snowLight, outdoors, dt);
             float far = _farIntensity.Value;
             _farSources.Zoom = OpticZoom(player);
-            _farSources.Update(center, eye, look, _stormWind, _windFlow, _groundDrift, _snowPlumes, _groundDriftIntensity.Value * far, _plumeIntensity.Value * far, _snowLight,
-                outdoors && far > 0.001f, dt);
+            _farSources.Update(center, eye, look, _stormWind, _windFlow, _groundDrift, _snowPlumes,
+                _groundDriftIntensity.Value * far, _plumeIntensity.Value * far, _snowLight, outdoors && far > 0.001f, dt);
             _snowHaze.Update(eye, center.y, _stormWind, _hazeIntensity.Value, _snowLight, outdoors, dt);
 
             float pulse = outdoors
-                ? _hazeIntensity.Value * _stormWind.Severity * (_stormWind.Pocket(eye) * 0.8f + _stormWind.FrontPassing * 1.1f + _stormWind.GustAt(eye, eye) * 0.4f)
+                ? _hazeIntensity.Value * _stormWind.Severity
+                    * (_stormWind.Pocket(eye) * 0.8f + _stormWind.FrontPassing * 1.1f + _stormWind.GustAt(eye, eye) * 0.4f)
                 : 0f;
             _fogPulse = Mathf.MoveTowards(_fogPulse, pulse, dt * 0.4f);
         }
@@ -127,7 +141,7 @@ namespace WinterOutbreak
             }
             catch
             {
-                // treat as no optic.
+                // Weapon state can be mid-swap
             }
 
             return 1f;
@@ -162,7 +176,7 @@ namespace WinterOutbreak
         }
 
         /// <summary>
-        /// Unlit particles would glow at night, so tint them by the sky's ambient and key light
+        /// Unlit particles would glow at night, so tint them by the sky's ambient and key light.
         /// </summary>
         internal static Color SampleSnowLight()
         {
@@ -174,8 +188,7 @@ namespace WinterOutbreak
 
             Color light = sky.AmbientColor + sky.LightColor * (Mathf.Clamp01(sky.LightIntensity) * 0.35f);
 
-            // Keep the brightness but only a trace of the sky's hue: moonlight and night ambient are strongly blue, and
-            // airborne snow should read as grey-white, not blue.
+            // Keep the brightness but only a trace of the sky's hue
             float luminance = Mathf.Clamp(light.r * 0.3f + light.g * 0.59f + light.b * 0.11f, 0.04f, 1f);
             var grey = new Color(luminance, luminance, luminance, 1f);
             Color tinted = Color.Lerp(grey, light, 0.15f);

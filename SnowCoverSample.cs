@@ -29,7 +29,7 @@ namespace WinterOutbreak
                 && Mathf.Abs(Vector3.Dot(neighbor.Normal, separation)) <= tolerance;
         }
 
-        // Both grids reserve a one-point halo around their rendered samples.
+        // Both grids reserve a one-point halo around their rendered samples
         public float Feather(SnowCoverSample[] samples, int index, int width, float tolerance)
         {
             if (!Fits(samples[index - 1], tolerance) || !Fits(samples[index + 1], tolerance)

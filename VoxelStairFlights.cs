@@ -25,7 +25,7 @@ namespace WinterOutbreak
         private const int MaxStairFlights = 1024;
         private const int StairSeedsPerChunk = 10;
 
-        // At most this many rays per chunk scan, so a chunk full of false seeds cannot stall a preparation slice.
+        // At most this many rays per chunk scan, so a chunk full of false seeds cannot stall a preparation slice
         private const int StairRaysPerChunk = 4000;
 
         private readonly List<StairFlight> _stairFlights = new List<StairFlight>();
@@ -35,10 +35,7 @@ namespace WinterOutbreak
         private readonly bool[] _stairLineValid = new bool[StairLineSamples];
         private readonly List<StairRun> _stairRuns = new List<StairRun>();
 
-        private long _stairSeeds;
         private long _stairRays;
-        private long _stairTicks;
-        private int _stairCellCount;
 
         private struct StairRun
         {
@@ -53,7 +50,7 @@ namespace WinterOutbreak
             public Vector2 Dir;
             public Vector2 Side;
 
-            // Risers bottom to top (distance along Dir from Origin); tread k lies between riser k and riser k + 1.
+            // Risers bottom to top (distance along Dir from Origin)
             public float[] Risers;
             public float[] Heights;
             public float Top;
@@ -61,13 +58,12 @@ namespace WinterOutbreak
             public float Left;
             public float Right;
 
-            // Each tread's own width, 0 where it could not be measured. Steps that wrap around a corner have shorter
-            // upper treads, and one width for the whole flight left slabs standing in the air.
+            // Each tread's own width, 0 where it could not be measured
             public float[] TreadLeft;
             public float[] TreadRight;
             public float Rise;
 
-            // The slope through the tread noses: from the first tread at the first riser to the top at the last one.
+            // The slope through the tread noses
             public Vector3 RampNormal;
         }
 
@@ -76,7 +72,7 @@ namespace WinterOutbreak
             return ((long)x << 32) ^ (uint)z;
         }
 
-        // On a flight or the ring of cells around it.
+        // On a flight or the ring of cells around it
         private bool NearStairFlight(int x, int z)
         {
             if (_stairCells.Count == 0)
@@ -106,14 +102,14 @@ namespace WinterOutbreak
         private long _stairFrameTicks;
 
         // Called before a chunk's surface is prepared: likely stair cells start a measurement
-        private bool ScanChunkForStairs(Chunk chunk)
+        private bool ScanChunkForStairs(Chunk chunk, long deadline)
         {
             if (chunk.StairsScanned || chunk.Columns == null || _stairFlights.Count >= MaxStairFlights)
             {
                 return true;
             }
 
-            // Parts of the map measured in an earlier raid keep the flights read from the cache (VoxelStairCache.cs).
+            // Parts of the map measured in an earlier raid keep the flights read from the cache (VoxelStairCache.cs)
             if (IsStairTileCached(chunk))
             {
                 chunk.StairsScanned = true;
@@ -134,11 +130,16 @@ namespace WinterOutbreak
             }
 
             long started = Stopwatch.GetTimestamp();
+
+            // The scan also stops at the caller's deadline (the shared snow budget in a raid), with at least a small
+            // slice per call so it always moves on
+            long frameEnd = System.Math.Max(deadline, started + _frameTicks / 4);
             bool finished = true;
             for (; chunk.StairScanCursor < ChunkWidth * ChunkWidth && chunk.StairScanSeeds < StairSeedsPerChunk
                 && chunk.StairScanRays < StairRaysPerChunk; chunk.StairScanCursor++)
             {
-                if (_stairFrameTicks + (Stopwatch.GetTimestamp() - started) >= budget)
+                long time = Stopwatch.GetTimestamp();
+                if (_stairFrameTicks + (time - started) >= budget || time >= frameEnd)
                 {
                     finished = false;
                     break;
@@ -160,7 +161,7 @@ namespace WinterOutbreak
                     continue;
                 }
 
-                // Stairs are shitty, plain terrain never seeds one.
+                // Stairs are built things: plain terrain never seeds one
                 Column column = chunk.Columns[i];
                 if (!column.Sampled || !column.HasGround || (column.OnTerrain && !column.HasTop) || column.BunkerTrench
                     || !LooksLikeStairs(x, z, SeedHeight(column), out Vector2 uphill))
@@ -169,7 +170,6 @@ namespace WinterOutbreak
                 }
 
                 chunk.StairScanSeeds++;
-                _stairSeeds++;
                 long raysBefore = _stairRays;
                 if (!TryMeasureFlight(x, z, SeedHeight(column), uphill))
                 {
@@ -180,7 +180,6 @@ namespace WinterOutbreak
             }
 
             long spent = Stopwatch.GetTimestamp() - started;
-            _stairTicks += spent;
             _stairFrameTicks += spent;
             if (!finished)
             {
@@ -203,7 +202,7 @@ namespace WinterOutbreak
             }
         }
 
-        // The sampled ground climbs like a staircase along a line of cells through this one
+        // The sampled ground climbs like a staircase along a line of cells through this one (either axis or diagonal)
         private bool LooksLikeStairs(int x, int z, float own, out Vector2 uphill)
         {
             uphill = Vector2.zero;
@@ -226,7 +225,7 @@ namespace WinterOutbreak
             return bestSteps >= 2;
         }
 
-        // The surface a person sees: the walkable top the ground search passed over, or else the ground.
+        // The surface a person sees
         private static float SeedHeight(Column column)
         {
             return column.HasTop ? column.TopHeight : column.GroundHeight;
@@ -291,7 +290,7 @@ namespace WinterOutbreak
                 }
             }
 
-            // Turn the climb square to the risers: compare where the risers cross two lines beside the centre line.
+            // Turn the climb square to the risers
             Vector2 side = new Vector2(-dir.y, dir.x);
             var plusRisers = new List<float>();
             var minusRisers = new List<float>();
@@ -324,7 +323,7 @@ namespace WinterOutbreak
                 bottom = turnedBottom;
             }
 
-            // Width: sideways along each tread until the surface leaves the tread's height.
+            // Width: sideways along each tread until the surface leaves the tread's height
             var left = new List<float>();
             var right = new List<float>();
             for (int k = 0; k < heights.Count; k++)
@@ -374,8 +373,7 @@ namespace WinterOutbreak
             return true;
         }
 
-        // Rays straight down every 2 cm along a line through the seed. Flat stretches are treads; a run of three or
-        // more regular steps up (8-26 cm rise, 18-55 cm treads, rises within 5 cm of each other) is the flight.
+        // Rays straight down every 2 cm along a line through the seed
         private bool TryReadStairLine(Vector3 seed, Vector2 dir, float offset, List<float> risers, List<float> heights,
             out float top, out float bottom)
         {
@@ -391,9 +389,8 @@ namespace WinterOutbreak
                 float s = -StairLineReach + i * StairLineStep;
                 Vector2 p = start + dir * s;
                 var origin = new Vector3(p.x, seed.y + 3f, p.y);
-                
                 // Anything higher than a tread could be along this line (a canopy over a bunker entrance) is passed
-                // through, so the treads under it are read.
+                // through, so the treads under it are read
                 float highest = seed.y + Mathf.Abs(s) * 1.1f + 0.4f;
                 RaycastHit hit = default;
                 bool found = false;
@@ -421,7 +418,7 @@ namespace WinterOutbreak
                 _stairLineY[i] = valid ? hit.point.y : 0f;
             }
 
-            // Flat runs along the line.
+            // Flat runs along the line
             _stairRuns.Clear();
             int runStart = -1;
             float runFirst = 0f;
@@ -460,7 +457,7 @@ namespace WinterOutbreak
                 }
             }
 
-            // The longest chain of regular steps up.
+            // The longest chain of regular steps up
             int bestFirst = -1;
             int bestLast = -1;
             for (int first = 0; first < _stairRuns.Count; first++)
@@ -484,7 +481,7 @@ namespace WinterOutbreak
                 return false;
             }
 
-            // A bottom step sunk into the ground rises less than the others.
+            // A bottom step sunk into the ground rises less than the others
             bool shortFoot = false;
             if (bestFirst > 0 && IsStairStep(_stairRuns[bestFirst - 1], _stairRuns[bestFirst]))
             {
@@ -505,7 +502,7 @@ namespace WinterOutbreak
             top = _stairRuns[bestLast].Height;
             bottom = _stairRuns[bestFirst].Height;
 
-            // every tread 18-55 cm deep, every rise within 5 cm of the middle one.
+            // Regular: every tread 18-55 cm deep, every rise within 5 cm of the middle one
             var rises = new List<float>();
             for (int r = shortFoot ? bestFirst + 1 : bestFirst; r < bestLast; r++)
             {
@@ -534,13 +531,15 @@ namespace WinterOutbreak
             return heights.Count >= StairMinRises - 1;
         }
 
+        // On the Woods bunker stairs the trench grass lies sloped over every nose and left 12-20 cm without a flat
+        // sample, so the 8 cm limit stopped every flight after two or three steps
         private static bool IsStairStep(StairRun low, StairRun high)
         {
             float rise = high.Height - low.Height;
             return rise >= StairMinRise && rise <= StairMaxRise && high.Start - low.End <= StairMaxGap;
         }
 
-        // Run `next` keeps the chain that starts at run `first` regular: the same rise within 5cm
+        // Run `next` keeps the chain that starts at run `first` regular
         private bool FitsChain(int first, int next)
         {
             float firstRise = _stairRuns[first + 1].Height - _stairRuns[first].Height;
@@ -561,8 +560,7 @@ namespace WinterOutbreak
             return tread >= StairMinTread && tread <= StairMaxTread;
         }
 
-        // How far the risers on the +offset line sit ahead of those on the -offset line. Risers are matched by the
-        // height of the tread above them, so a line that starts or stops a step early still pairs up with the other.
+        // How far the risers on the +offset line sit ahead of those on the -offset line
         private static float MatchRiserSkew(List<float> plus, List<float> plusHeights, float plusTop,
             List<float> minus, List<float> minusHeights, float minusTop)
         {
@@ -622,7 +620,7 @@ namespace WinterOutbreak
         }
 
         // How far a flight claims the landings at its foot and head, so the floor there is the floor the stairs start
-        // from and not the terrain under a bunker.
+        // from and not the terrain under a bunker
         private const float StairLandingReach = 0.5f;
         private const float StairClaimMargin = 0.15f;
 
@@ -705,9 +703,8 @@ namespace WinterOutbreak
                 int x = (int)(key >> 32);
                 int z = (int)(uint)key;
                 _stairCells.Add(key, id);
-                _stairCellCount++;
 
-                // Cells sampled already take the slope now; later samples take it as they are stored.
+                // Cells sampled already take the slope now
                 Chunk owner = GetChunk(x, z);
                 if (owner?.Columns != null)
                 {
@@ -717,6 +714,7 @@ namespace WinterOutbreak
                 touched.Add(KeyForCell(x, z));
             }
 
+            // Everything worked out from the old heights around the flight is worked out again
             var refresh = new HashSet<Vector2Int>();
             foreach (var key in touched)
             {
@@ -758,7 +756,8 @@ namespace WinterOutbreak
 
             return true;
         }
-        
+
+        // The flight that owns most of these cells, when it is the same flight read shorter
         private bool TryFindShorterReading(StairFlight flight, List<long> cells, out int id)
         {
             var counts = new Dictionary<int, int>();
@@ -793,7 +792,8 @@ namespace WinterOutbreak
             return sameClimb && sameEnd && flight.Risers.Length > old.Risers.Length;
         }
 
-
+        // A stored sample on a stair cell takes the flight's slope as its ground, when the sample itself lies within a
+        // step of that slope (a tread, not a wall top or the floor under a gap)
         private void ApplyStairRamp(int x, int z, ref Column column)
         {
             if (_stairCells.Count == 0 || !column.Sampled || !column.HasGround || column.StairOwned
@@ -817,8 +817,7 @@ namespace WinterOutbreak
 
             // Its grid snow runs on at the foot's level
             bool onSlope = s > flight.Risers[0] && s < flight.Risers[flight.Risers.Length - 1];
-            
-            // A landing cell is never lowered
+            // A landing cell is never lowered: the ramp only lifts a sample that fell through
             float foot = flight.Bottom - _origin.y;
             bool underOpenStairs = onSlope && column.GroundHeight < foot;
             column.GroundHeight = onSlope ? Mathf.Min(foot, column.GroundHeight) : Mathf.Max(ramp, column.GroundHeight);
@@ -835,7 +834,8 @@ namespace WinterOutbreak
                 column.Exposed = !column.Sheltered;
             }
         }
-        
+
+        // The landing at the foot, the slope through the tread noses, the landing at the head
         private static float RampHeight(StairFlight flight, float s)
         {
             float s0 = flight.Risers[0];
@@ -883,7 +883,6 @@ namespace WinterOutbreak
             _stairFlights.Clear();
             _stairCells.Clear();
             _stairTried.Clear();
-            _stairCellCount = 0;
         }
     }
 }

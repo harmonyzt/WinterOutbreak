@@ -1,4 +1,3 @@
-using BepInEx.Configuration;
 using BepInEx.Logging;
 
 namespace WinterOutbreak

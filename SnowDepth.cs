@@ -12,6 +12,7 @@ namespace WinterOutbreak
         private ConfigEntry<float> _snowDepthCentimeters;
         private ConfigEntry<float> _snowDepthSeconds;
         private ConfigEntry<float> _snowStreamRadius;
+        private ConfigEntry<float> _snowFrameBudget;
 
         private VoxelSnowArea _voxelSnow;
         private float _snowDepthStarted;
@@ -24,24 +25,33 @@ namespace WinterOutbreak
 
         private void BindSnowDepthSettings()
         {
-            _snowDepthEnabled = Config.Bind(
-                "Snow Depth", "Enabled", true,
-                "Snow builds up on the ground during winter storms.");
+            const string oldSection = "Snow Depth";
 
-            _snowDepthCentimeters = Config.Bind(
-                "Snow Depth", "Max Depth (cm)", 16f,
-                new ConfigDescription("Deepest the snow gets, in centimetres.",
-                    new AcceptableValueRange<float>(2f, 30f)));
+            _snowDepthEnabled = BindSetting(SnowSection, "Snow Depth", true,
+                "Snow builds up on the ground during winter storms.", 1,
+                oldSection: oldSection, oldKey: "Enabled");
 
-            _snowDepthSeconds = Config.Bind(
-                "Snow Depth", "Seconds To Full Depth", 180f,
-                new ConfigDescription("How long a Blizzard takes to build the snow up to full depth.",
-                    new AcceptableValueRange<float>(15f, 600f)));
+            _snowDepthCentimeters = BindSetting(SnowSection, "Max Snow Depth (cm)", 16f,
+                "Deepest the snow gets, in centimetres.", 2,
+                false, new AcceptableValueRange<float>(2f, 30f), oldSection, "Max Depth (cm)");
 
-            _snowStreamRadius = Config.Bind(
-                "Snow Depth", "Detail Radius (m)", 100f,
-                new ConfigDescription("How far around you the snow is drawn in full detail. Lower is faster. Applies from the next raid.",
-                    new AcceptableValueRange<float>(33f, 100f)));
+            _snowDepthSeconds = BindSetting(SnowSection, "Seconds To Full Depth", 180f,
+                "How long a Blizzard takes to build the snow up to full depth.", 3,
+                true, new AcceptableValueRange<float>(15f, 600f), oldSection);
+
+            _snowStreamRadius = BindSetting(PerformanceSection, "Snow Detail Radius (m)", 75f,
+                "How far around you the snow is drawn in full detail; the far snow covers the rest. "
+                + "Lower is a little faster, but the change to full detail shows closer to you. "
+                + "Applies from the next raid.", 2,
+                false, new AcceptableValueRange<float>(33f, 100f), oldSection, "Detail Radius (m)");
+
+            _snowFrameBudget = BindSetting(PerformanceSection, "Snow CPU Budget (ms)", 1.5f,
+                "Most time the snow may spend building each frame, in milliseconds. Lower keeps "
+                + "the frame rate higher; the detailed snow then fills in more slowly while you run, and the far snow "
+                + "is shown until it catches up.", 3,
+                false, new AcceptableValueRange<float>(0.5f, 4f), oldSection, "CPU Budget (ms)");
+
+            BindFarSnowSettings();
         }
 
         private void UpdateSnowDepth(Player player, bool raidPreparing)
@@ -54,8 +64,7 @@ namespace WinterOutbreak
 
             if (player == null)
             {
-                // Raid end clears the snow through EndRaid. A frame without a storm player inside the raid must not
-                // discard the accumulated depth and restart the storm from bare ground.
+                // Raid end clears the snow through EndRaid
                 if (_voxelSnow != null && Time.time >= _nextSnowGapLog)
                 {
                     _nextSnowGapLog = Time.time + 10f;
@@ -97,6 +106,7 @@ namespace WinterOutbreak
             }
 
             float depth = GetStormSnowDepth(out bool full);
+            _voxelSnow.FrameBudgetMs = _snowFrameBudget.Value;
             _voxelSnow.Update(player.Position, depth, full, raidPreparing);
             if (!raidPreparing)
             {
@@ -120,7 +130,7 @@ namespace WinterOutbreak
             }
         }
 
-        // Stair flights measured on a map are kept in BepInEx/cache/WinterOutbreak between raids (VoxelStairCache.cs).
+        // Stair flights measured on a map are kept in BepInEx/cache/WinterOutbreak between raids (VoxelStairCache.cs)
         private string StairCachePath()
         {
             return string.IsNullOrEmpty(_snowMapName)
@@ -138,7 +148,7 @@ namespace WinterOutbreak
 
             try
             {
-                // Load first; only the message is development-only.
+                // Load first
                 string result = _voxelSnow.LoadStairCache(path, VoxelSnowArea.StairCacheHeader(_snowMapName));
             }
             catch (Exception error)
@@ -195,7 +205,7 @@ namespace WinterOutbreak
         }
 
         /// <summary>
-        /// The storm's snow depth now. A Fika client follows the host's last report.
+        /// The storm's snow depth now.
         /// </summary>
         private float GetStormSnowDepth(out bool full)
         {
@@ -273,7 +283,7 @@ namespace WinterOutbreak
                 out var terrain, 320f, terrainMask, triggers);
             FrozenIce.RaiseTerrain(position, ref terrain, ref hasTerrain);
 
-            // Use the terrain as a local elevation reference across the wider area.
+            // Use the terrain as a local elevation reference across the wider area
             float height = hasTerrain ? terrain.point.y + 0.65f : position.y + 2f;
             var origin = new Vector3(position.x, height, position.z);
             float reach = hasTerrain ? 1.3f : 9f;

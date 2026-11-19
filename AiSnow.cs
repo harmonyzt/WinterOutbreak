@@ -65,7 +65,7 @@ namespace WinterOutbreak
 
         private void UpdateAiFootprints(Vector3 localPosition, float now)
         {
-            // Bots, and in a Fika raid the other human players too. Your own steps come from SnowInteraction.
+            // Bots, and in a Fika raid the other human players too
             foreach (Player bot in _raid.AllAlivePlayersList)
             {
                 if (bot == null || bot.IsYourPlayer)
@@ -75,7 +75,8 @@ namespace WinterOutbreak
 
                 Vector3 position = bot.Position;
                 var movement = bot.MovementContext;
-                if ((position - localPosition).sqrMagnitude > AiTrackRadius * AiTrackRadius || movement == null || movement.IsInPronePose)
+                if ((position - localPosition).sqrMagnitude > AiTrackRadius * AiTrackRadius
+                    || movement == null || movement.IsInPronePose)
                 {
                     continue;
                 }
@@ -141,11 +142,13 @@ namespace WinterOutbreak
                     continue;
                 }
 
-                if (_aiBodyImpressions.Value && !body.HasImpression && _voxelSnow != null && now >= body.NextImpressionAttempt)
+                if (_aiBodyImpressions.Value && !body.HasImpression && _voxelSnow != null
+                    && now >= body.NextImpressionAttempt)
                 {
                     body.NextImpressionAttempt = now + 1f;
                     int floorMask = solids | LayersMaskController.TerrainMask;
-                    if (TryFindBodyContact(body.Pelvis.position, floorMask, out var contact) || TryFindBodyContact(body.TorsoPosition, floorMask, out contact))
+                    if (TryFindBodyContact(body.Pelvis.position, floorMask, out var contact)
+                        || TryFindBodyContact(body.TorsoPosition, floorMask, out contact))
                     {
                         Vector3 forward = Vector3.ProjectOnPlane(body.TorsoPosition - body.Pelvis.position, Vector3.up);
                         if (forward.sqrMagnitude < 0.01f)
@@ -153,7 +156,8 @@ namespace WinterOutbreak
                             forward = body.FallDirection;
                         }
 
-                        body.HasImpression = _voxelSnow.StampBody(contact, forward.normalized, Mathf.Max(90f, _footprintRefillSeconds.Value));
+                        body.HasImpression = _voxelSnow.StampBody(contact, forward.normalized,
+                            Mathf.Max(90f, _footprintRefillSeconds.Value));
                     }
                 }
 
@@ -185,7 +189,8 @@ namespace WinterOutbreak
 
         private bool TryFindBodyContact(Vector3 bone, int floorMask, out Vector3 contact)
         {
-            if (Physics.Raycast(bone + Vector3.up * 0.12f, Vector3.down, out var hit, 0.62f, floorMask, QueryTriggerInteraction.Ignore) && hit.normal.y >= 0.42f
+            if (Physics.Raycast(bone + Vector3.up * 0.12f, Vector3.down, out var hit, 0.62f, floorMask,
+                QueryTriggerInteraction.Ignore) && hit.normal.y >= 0.42f
                 && _voxelSnow.TryGetDepth(hit.point, out float depth) && depth >= 0.025f)
             {
                 contact = hit.point;
@@ -201,7 +206,8 @@ namespace WinterOutbreak
             const QueryTriggerInteraction triggers = QueryTriggerInteraction.Ignore;
             Vector3 pelvis = body.Pelvis.position + Vector3.up * 0.45f;
             Vector3 torso = body.TorsoPosition + Vector3.up * 0.45f;
-            if (Physics.Raycast(pelvis, Vector3.up, 30f, solids, triggers) && Physics.Raycast(torso, Vector3.up, 30f, solids, triggers))
+            if (Physics.Raycast(pelvis, Vector3.up, 30f, solids, triggers)
+                && Physics.Raycast(torso, Vector3.up, 30f, solids, triggers))
             {
                 body.NextCoverAttempt = now + 5f;
                 return;
@@ -244,8 +250,7 @@ namespace WinterOutbreak
             _nextCorpseSample = 0f;
         }
 
-        // Player.OnDead stores CreateCorpse's result in Player.Corpse. Fika overrides CreateCorpse without calling the
-        // base method on clients, but its OnDead overrides still call Player.OnDead.
+        // Player.OnDead stores CreateCorpse's result in Player.Corpse
         [HarmonyPatch(typeof(Player), nameof(Player.OnDead))]
         private static class AiSnowCorpsePatch
         {
@@ -253,7 +258,8 @@ namespace WinterOutbreak
             {
                 var plugin = _plugin;
                 var corpse = ___Corpse;
-                if (plugin == null || plugin._weather == null || !plugin._snowDepthEnabled.Value || (!plugin._aiBodyImpressions.Value && !plugin._aiCorpseCover.Value)
+                if (plugin == null || plugin._weather == null || !plugin._snowDepthEnabled.Value
+                    || (!plugin._aiBodyImpressions.Value && !plugin._aiCorpseCover.Value)
                     || __instance.IsYourPlayer || corpse == null || corpse.TrackableTransform == null)
                 {
                     return;
@@ -368,8 +374,8 @@ namespace WinterOutbreak
             {
                 Vector3 pelvis = Pelvis.position;
                 Vector3 torso = TorsoPosition;
-
-                if ((pelvis - _lastPelvis).sqrMagnitude > 0.04f * 0.04f || (torso - _lastTorso).sqrMagnitude > 0.04f * 0.04f)
+                if ((pelvis - _lastPelvis).sqrMagnitude > 0.04f * 0.04f
+                    || (torso - _lastTorso).sqrMagnitude > 0.04f * 0.04f)
                 {
                     _lastPelvis = pelvis;
                     _lastTorso = torso;

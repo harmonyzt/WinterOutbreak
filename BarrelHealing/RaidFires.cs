@@ -51,7 +51,7 @@ namespace WinterOutbreak
         }
 
         /// <summary>
-        /// Adds a fire the player built. Does nothing if it is already known.
+        /// Adds a fire the player built.
         /// </summary>
         internal void AddPlaced(Vector3 position)
         {

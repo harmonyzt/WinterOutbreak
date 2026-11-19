@@ -8,11 +8,7 @@ using UnityEngine;
 namespace WinterOutbreak
 {
     /// <summary>
-    /// Bullets in snow. EFT's impact effect (EffectsCommutator.PlayHitEffect) runs once per world hit with the hit
-    /// point, surface normal, direction and speed. A hit on the ground under the snow presses a small hole through the
-    /// print texture (with a rim, refilling over a minute) and kicks up a puff of powder and grains along the surface,
-    /// tilted by the bullet's angle and bigger for faster rounds. Hits on walls and props above the snow, and hits on
-    /// players, are left alone. EFT's own impact effect and sound still play.
+    /// Bullets in snow.
     /// </summary>
     public sealed partial class WinterOutbreakPlugin
     {
@@ -29,8 +25,9 @@ namespace WinterOutbreak
 
         private void BindBulletSnowSettings()
         {
-            _bulletImpacts = Config.Bind("Snow Surface", "Bullet Impacts", true,
-                "Bullets that hit snowy ground leave a small hole and kick up a puff of snow.");
+            _bulletImpacts = BindSetting(SnowSection, "Bullet Impacts", true,
+                "Bullets that hit snowy ground leave a small hole and kick up a puff of snow.", 4,
+                oldSection: "Snow Surface");
         }
 
         private void OnBulletHit(Shot shot)
@@ -59,13 +56,13 @@ namespace WinterOutbreak
                 _bulletImpactsThisFrame = 0;
             }
 
-            // A long burst into the snow: the first few hits of a frame are plenty to read.
+            // A long burst into the snow: the first few hits of a frame are plenty to read
             if (_bulletImpactsThisFrame >= BulletImpactsPerFrame)
             {
                 return;
             }
 
-            // Only the ground under the snow (or the snow surface itself); TryGetDepth rejects points well above it.
+            // Only the ground under the snow (or the snow surface itself)
             if (!_voxelSnow.TryGetDepth(point, out float depth) || depth < 0.02f)
             {
                 return;
@@ -74,12 +71,12 @@ namespace WinterOutbreak
             _bulletImpactsThisFrame++;
             float speed = Mathf.InverseLerp(150f * 150f, 900f * 900f, shot.VelocitySqrMagnitude);
             float energy = Mathf.Lerp(0.45f, 1f, speed) * (shot.FragmentIndex > 0 ? 0.5f : 1f);
-            // Every hole a little different, and the outline is lobed per hole (random phases).
+            // Every hole a little different, and the outline is lobed per hole (random phases)
             float radius = BulletHoleRadius * Mathf.Lerp(0.8f, 1.15f, energy) * Random.Range(0.75f, 1.3f);
             float holeDepth = Mathf.Min(depth * 0.85f, BulletHoleMaxDepth) * energy * Random.Range(0.7f, 1.1f);
             _voxelSnow.StampBulletHole(point, radius, holeDepth, BulletHoleRefillSeconds);
 
-            // A shallow shot skips forward through the snow: a short, fading gouge along its path.
+            // A shallow shot skips forward through the snow: a short, fading gouge along its path
             Vector3 flat = new Vector3(shot.Direction.x, 0f, shot.Direction.z);
             float grazing = 1f - Mathf.Abs(Vector3.Dot(shot.Direction.normalized, normal));
             if (grazing > 0.5f && flat.sqrMagnitude > 0.01f)
@@ -128,7 +125,7 @@ namespace WinterOutbreak
     }
 
     /// <summary>
-    /// A bullet's puff in snow: a little powder and a spray of grains, lit like the scene.
+    /// A bullet's puff in snow
     /// </summary>
     internal sealed class BulletSnowPuff
     {
@@ -151,7 +148,7 @@ namespace WinterOutbreak
                 _light = SnowPowder.Tint(1f, 1f);
             }
 
-            // Snow kicks out along the surface and forward of the bullet's path, not straight back at the shooter.
+            // Snow kicks out along the surface and forward of the bullet's path, not straight back at the shooter
             Vector3 reflected = Vector3.Reflect(direction.normalized, normal);
             Vector3 kick = (normal * 0.8f + reflected * 0.6f).normalized;
             Color dirt = new Color(_light.r * 0.6f, _light.g * 0.5f, _light.b * 0.42f, 1f);

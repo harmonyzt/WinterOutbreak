@@ -23,7 +23,8 @@ namespace WinterOutbreak
 
         private static float _exposureSpeedOverride;
 
-        private static readonly AccessTools.FieldRef<PrismEffects, bool> PrismFirstRun = AccessTools.FieldRefAccess<PrismEffects, bool>("firstRun");
+        private static readonly AccessTools.FieldRef<PrismEffects, bool> PrismFirstRun =
+            AccessTools.FieldRefAccess<PrismEffects, bool>("firstRun");
 
         private readonly Fixed<KeyboardShortcut> _exposureTestKey = new Fixed<KeyboardShortcut>(new KeyboardShortcut(KeyCode.F8));
         private Coroutine _exposureTest;
@@ -139,7 +140,8 @@ namespace WinterOutbreak
             }
 
             SetBonfiresShown(true);
-            NotificationManager.DisplayMessageNotification($"Exposure test: with {readings[0]:0.000}, hidden {readings[1]:0.000}, again {readings[2]:0.000}");
+            NotificationManager.DisplayMessageNotification(
+                $"Exposure test: with {readings[0]:0.000}, hidden {readings[1]:0.000}, again {readings[2]:0.000}");
             _exposureTest = null;
         }
 
@@ -189,7 +191,7 @@ namespace WinterOutbreak
                     return;
                 }
 
-                // m_Material2 runs the adaptation pass; EFT has just written its own speed into it.
+                // m_Material2 runs the adaptation pass
                 var material = __instance.m_Material2;
                 if (material != null)
                 {

@@ -37,6 +37,26 @@ namespace WinterOutbreak
 
         private Material _distantMaterial;
 
+        private bool _groundPreviewHidden;
+
+        private void SetGroundPreviewHidden(bool hidden)
+        {
+            if (_groundPreviewHidden == hidden)
+            {
+                return;
+            }
+
+            _groundPreviewHidden = hidden;
+            foreach (var tile in _groundPreviews.Values)
+            {
+                var renderer = tile.Object != null ? tile.Object.GetComponent<MeshRenderer>() : null;
+                if (renderer != null)
+                {
+                    renderer.forceRenderingOff = hidden;
+                }
+            }
+        }
+
         private void UpdateGroundPreview(Vector3 local, Vector3 ahead, Vector3 direction, float lead,
             float depth, bool fullyAccumulated, float now, bool preparing)
         {
@@ -54,7 +74,8 @@ namespace WinterOutbreak
 
             int remaining = preparing ? CountdownPreviewBudget : PreviewColumnBudget;
             double seconds = preparing ? CountdownPreviewSeconds : PreviewSampleSeconds;
-            long deadline = Stopwatch.GetTimestamp() + (long)(Stopwatch.Frequency * seconds);
+            long deadline = System.Math.Min(FrameShare(PreviewShare),
+                Stopwatch.GetTimestamp() + (long)(Stopwatch.Frequency * seconds));
             int finished = 0;
             int maxTiles = preparing ? 8 : 2;
             while (_previewSampling != null && finished < maxTiles && remaining > 0)
@@ -78,7 +99,7 @@ namespace WinterOutbreak
                 }
             }
 
-            if (finished >= maxTiles)
+            if (finished >= maxTiles || !HasFrameTime(PreviewShare))
             {
                 return;
             }
@@ -227,7 +248,7 @@ namespace WinterOutbreak
             Column column = SampleColumn(_origin + point);
             if (!column.Exposed && column.HasUpperLevel)
             {
-                // The broad field has no doorway drift, so it always shows the exposed upper level.
+                // The broad field has no doorway drift, so it always shows the exposed upper level
                 column = UpperLevel(column);
             }
 
@@ -281,7 +302,7 @@ namespace WinterOutbreak
                     : tile.Faces[i - PreviewPointCount] == 15 ? 1f : 0.55f;
                 feather *= FireMeltFactor(point.x, point.z);
 
-                // On frozen lake ice only a shore bank (FrozenLake.cs). Points are relative to the area origin.
+                // On frozen lake ice only a shore bank (FrozenLake.cs)
                 feather *= FrozenIce.SnowShare(_origin.x + point.x, _origin.z + point.z, _origin.y + point.y);
                 point.y +=Mathf.Lerp(-0.025f, 0.006f, feather)
                     + depth * feather * GroundVariation(point.x, point.z);
@@ -305,7 +326,7 @@ namespace WinterOutbreak
             tile.Mesh.SetTriangles(_triangles, 0);
             tile.Mesh.SetNormals(_normals);
 
-            // Distant tiles never know about cover, so wind ripples show at full strength on them.
+            // Distant tiles never know about cover, so wind ripples show at full strength on them
             _exposure.Clear();
             for (int i = 0; i < _vertices.Count; i++)
             {
@@ -315,7 +336,7 @@ namespace WinterOutbreak
             tile.Mesh.SetColors(_exposure);
             if (_prints != null)
             {
-                // Distant tiles share the print material but are never pressed: an explicit zero limit.
+                // Distant tiles share the print material but are never pressed: an explicit zero limit
                 _printLimits.Clear();
                 PadPrintLimits();
                 tile.Mesh.SetUVs(3, _printLimits);
@@ -390,7 +411,7 @@ namespace WinterOutbreak
             {
                 if (published && tile.Mesh != null)
                 {
-                    // Swap out the matching part of the coarse mesh in the frame detail arrives.
+                    // Swap out the matching part of the coarse mesh in the frame detail arrives
                     RebuildGroundPreview(tile, tile.Depth);
                 }
                 else

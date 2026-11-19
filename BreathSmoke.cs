@@ -1,4 +1,3 @@
-using BepInEx.Configuration;
 using EFT;
 using UnityEngine;
 
@@ -103,7 +102,7 @@ namespace WinterOutbreak
                 _breathSystems = _breathSmoke.GetComponentsInChildren<ParticleSystem>(true);
                 foreach (var system in _breathSystems)
                 {
-                    // Carry released breath along with the player's movement instead of leaving it behind.
+                    // Carry released breath along with the player's movement instead of leaving it behind
                     var main = system.main;
                     main.emitterVelocityMode = ParticleSystemEmitterVelocityMode.Custom;
                     var inherit = system.inheritVelocity;

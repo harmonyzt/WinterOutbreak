@@ -24,8 +24,7 @@ namespace WinterOutbreak
         private int _previousSnowStep = -1;
         private int _previousSnowRun = -1;
 
-        // Steps, runs and a slide on bare ice (frozen water), from the mod's own sound folder. The slide replaces EFT's
-        // own stop sound (EAudioMovementState.Stop), so it plays the moment you stop and EFT's does not play over it.
+        // Steps, runs and a slide on bare ice (frozen water), from the mod's own sound folder
         private readonly AudioClip[] _iceSteps = new AudioClip[5];
         private readonly AudioClip[] _iceRuns = new AudioClip[5];
         private readonly AudioClip[] _iceSlide = new AudioClip[1];
@@ -85,7 +84,7 @@ namespace WinterOutbreak
             }
         }
 
-        // One clip by its plain name (no number).
+        // One clip by its plain name (no number)
         private IEnumerator LoadSoundClip(AudioClip[] slot, string name)
         {
             if (slot[0] != null)
@@ -146,7 +145,7 @@ namespace WinterOutbreak
                 return null;
             }
 
-            // Bare ice gets ice steps, with or without voxel snow on the ground around it.
+            // Bare ice gets ice steps, with or without voxel snow on the ground around it
             if (FrozenIce.IsBareIce(player.Position))
             {
                 var ice = running ? PickSnowClip(_iceRuns, ref _previousIceRun) : null;
@@ -170,7 +169,7 @@ namespace WinterOutbreak
             return PickSnowClip(_snowSteps, ref _previousSnowStep);
         }
 
-        // Stopping on bare ice: the slide.
+        // Stopping on bare ice: the slide
         private AudioClip PickIceStop(Player player)
         {
             if ((!player.IsYourPlayer && !player.IsAI) || player.MovementContext?.IsGrounded != true
@@ -227,7 +226,7 @@ namespace WinterOutbreak
                 yield return AccessTools.Method(sprint, "MoveNext");
 
                 // Fika replaces the sprint coroutine with its own per-frame tick that plays the sprint bank directly,
-                // so without this target sprint steps never reach the snow sounds.
+                // so without this target sprint steps never reach the snow sounds
                 var fikaPlayer = AccessTools.TypeByName("Fika.Core.Main.Players.FikaPlayer");
                 var fikaSprint = fikaPlayer == null ? null : AccessTools.DeclaredMethod(fikaPlayer, "TickSprintState");
                 if (fikaSprint != null)
@@ -260,8 +259,7 @@ namespace WinterOutbreak
                 var playSurface = AccessTools.Method(typeof(SnowStepPlaybackPatch), nameof(PlaySurface));
                 var playWeather = AccessTools.Method(typeof(SnowStepPlaybackPatch), nameof(PlayWeather));
 
-                // The EFT sprint coroutine holds its player in a field; Player methods (and Fika's subclass) are the
-                // player.
+                // The EFT sprint coroutine holds its player in a field
                 bool sprintCoroutine = !typeof(Player).IsAssignableFrom(original.DeclaringType);
                 bool movementStateArgument = original.Name == "DefaultPlay";
                 var result = new List<CodeInstruction>(code.Count + 8);

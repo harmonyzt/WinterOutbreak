@@ -12,11 +12,9 @@ namespace WinterOutbreak
     {
         private const float IceLinkSpacing = 3f;
         private const float IceLinkInland = 2f;
-        
         // Point links (width 0)
         private const float IceLinkWidth = 0f;
-        
-        // Unity joins new navmesh and links on a later update, so the self-test waits a moment after adding them.
+        // Unity joins new navmesh and links on a later update, so the self-test waits a moment after adding them
         private const float IceNavTestDelay = 3f;
         private const int IceNavTestTargets = 5;
 
@@ -55,11 +53,11 @@ namespace WinterOutbreak
 
         private void BindIceNavMeshSettings()
         {
-            // Off: bots still get stuck on the ice (experimental, not a setting).
+            // Off: bots still get stuck on the ice (experimental, not a setting)
             _iceBotNavMesh = new Fixed<bool>(false);
         }
 
-        // Starts the background build for one frozen surface. walkRoot holds its walkable ice strips.
+        // Starts the background build for one frozen surface. walkRoot holds its walkable ice strips
         private void StartIceNavMesh(string name, Transform walkRoot, Vector3 origin, Vector3 axisA, Vector3 axisB, IceGrid grid,
             FrozenIce.IceField field)
         {
@@ -72,8 +70,7 @@ namespace WinterOutbreak
             float waterY = grid.WaterY;
             NavMeshBuildSettings settings = NavMesh.GetSettingsByID(0);
 
-            // The rectangle's footprint, in a thin band around the ice: enough to see the shore and anything standing
-            // on the ice, without voxelising the hills around the ponds.
+            // The rectangle's footprint, in a thin band around the ice
             Vector3[] corners = { origin, origin + axisA, origin + axisB, origin + axisA + axisB };
             float minX = corners.Min(c => c.x) - 2f, maxX = corners.Max(c => c.x) + 2f;
             float minZ = corners.Min(c => c.z) - 2f, maxZ = corners.Max(c => c.z) + 2f;
@@ -104,8 +101,7 @@ namespace WinterOutbreak
             _iceNavJobs.Add(job);
         }
 
-        // Where a pond cell meets shore terrain that bots walk on: the ice end sits one cell into the ice, the shore
-        // end on the existing navmesh 2 m inland. Thinned to about one link every IceLinkSpacing metres.
+        // Where a pond cell meets shore terrain that bots walk on
         private static List<IceLinkCandidate> FindIceLinks(Vector3 origin, Vector3 axisA, Vector3 axisB, IceGrid grid)
         {
             var links = new List<IceLinkCandidate>();
@@ -137,7 +133,7 @@ namespace WinterOutbreak
                         Vector3 guess = ice + outward * (cell * 0.5f + IceLinkInland);
                         guess.y = grid.GroundY[a, b] + 1f;
 
-                        // The map's own navmesh, on the shore and not on a pond bed under the ice.
+                        // The map's own navmesh, on the shore and not on a pond bed under the ice
                         if (!NavMesh.SamplePosition(guess, out var hit, 2f, NavMesh.AllAreas) || hit.position.y < grid.WaterY - 0.05f
                             || hit.position.y > grid.WaterY + 2.5f)
                         {
@@ -155,7 +151,7 @@ namespace WinterOutbreak
             return links;
         }
 
-        // A few ice cells far from any shore (the middle of the larger ponds), for the self-test after the build.
+        // A few ice cells far from any shore (the middle of the larger ponds), for the self-test after the build
         private static List<Vector3> PickIceTestTargets(Vector3 origin, Vector3 axisA, Vector3 axisB, IceGrid grid,
             FrozenIce.IceField field)
         {
@@ -174,7 +170,7 @@ namespace WinterOutbreak
                 }
             }
 
-            // The deepest point of each pond, roughly: take the furthest cells that are at least 30 m apart.
+            // The deepest point of each pond, roughly: take the furthest cells that are at least 30 m apart
             var picked = new List<Vector3>();
             foreach (var cell in cells.OrderByDescending(c => c.Distance))
             {
@@ -191,7 +187,7 @@ namespace WinterOutbreak
             return picked;
         }
 
-        // Called every frame while frozen: adds finished builds, their links, and logs a path self-test.
+        // Called every frame while frozen
         private void UpdateIceNavMesh()
         {
             foreach (var job in _iceNavJobs)
@@ -201,7 +197,7 @@ namespace WinterOutbreak
                     job.Tested = true;
                 }
 
-                // Add it back, with its links re-snapped to the new shore navmesh.
+                // Add it back, with its links re-snapped to the new shore navmesh
                 if (job.Finished && job.Instance.valid == false && job.ShoreEnds != null && !job.Readded)
                 {
                     job.Readded = true;
@@ -234,7 +230,7 @@ namespace WinterOutbreak
             }
         }
 
-        // Adds the job's shore links.
+        // Adds the job's shore links
         private int AddIceLinks(IceNavMeshJob job, bool resnapShore)
         {
             var shoreEnds = new List<Vector3>();
@@ -314,7 +310,7 @@ namespace WinterOutbreak
                 NavMesh.RemoveNavMeshData(instance);
             }
 
-            // A build still running is left to finish on its own; its data is simply never added.
+            // A build still running is left to finish on its own
             foreach (var job in _iceNavJobs)
             {
                 job.Finished = true;

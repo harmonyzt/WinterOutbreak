@@ -57,10 +57,7 @@ namespace WinterOutbreak
     }
 
     /// <summary>
-    /// World-anchored sources of blowing snow. Snow comes from places, not from a box around the player: each 7 m
-    /// ground cell is examined once (shelter, flow, slope, crest, walls) and keeps its own temperament and cycle, so an
-    /// exposed ridge keeps smoking while the sheltered yard beside it stays quiet, and a gust is seen rolling across
-    /// the ground as it reaches one source after another.
+    /// World-anchored sources of blowing snow.
     /// </summary>
     internal sealed class SnowSources
     {
@@ -87,8 +84,7 @@ namespace WinterOutbreak
         }
 
         /// <summary>
-        /// A ring of sources. The far ring uses large cells and only the effects that read at a distance (sheets and
-        /// large billows), and stretches along the aim through a scope.
+        /// A ring of sources.
         /// </summary>
         public SnowSources(float cell, float inner, float radius, bool far)
         {
@@ -104,7 +100,7 @@ namespace WinterOutbreak
         }
 
         /// <summary>
-        /// Optic magnification while aiming, 1 otherwise. Only the far ring uses it.
+        /// Optic magnification while aiming, 1 otherwise.
         /// </summary>
         public float Zoom
         {
@@ -184,12 +180,12 @@ namespace WinterOutbreak
                 float view;
                 if (_far)
                 {
-                    // Far snow takes many seconds to reach the player, so behind the camera only a trickle is kept.
+                    // Far snow takes many seconds to reach the player, so behind the camera only a trickle is kept
                     view = Mathf.Lerp(0.12f, 1f, Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(-0.2f, 0.5f, facing)));
                 }
                 else if (distance > 12f && facing < 0f && Vector3.Dot(source.Flow, look) < 0.2f)
                 {
-                    // Behind the camera and blowing away from the view: a reduced rate, never a blank area.
+                    // Behind the camera and blowing away from the view: a reduced rate, never a blank area
                     view = 0.33f;
                 }
                 else
@@ -203,7 +199,7 @@ namespace WinterOutbreak
 
                 if (!_far)
                 {
-                    // Full rate to 30 m, easing to half at the ring edge.
+                    // Full rate to 30 m, easing to half at the ring edge
                     float streakFade = Mathf.Lerp(1f, 0.5f, Mathf.InverseLerp(StreakFull, Radius, distance));
                     source.StreakBudget = Mathf.Min(source.StreakBudget
                         + 0.22f * level * driftIntensity * streakRhythm * streakFade * deltaTime, 1.3f);
@@ -256,7 +252,7 @@ namespace WinterOutbreak
                 return;
             }
 
-            // Vortices: rare, from an active open spot with no wall close by.
+            // Vortices: rare, from an active open spot with no wall close by
             _vortexChance += deltaTime * 0.035f * strength * plumeIntensity * (1f + wind.GustAt(center, center));
             if (_vortexChance >= 1f)
             {
@@ -268,7 +264,7 @@ namespace WinterOutbreak
                 }
             }
 
-            // Gust clouds start from a real upwind source a moment after a big gust begins.
+            // Gust clouds start from a real upwind source a moment after a big gust begins
             if (wind.BigGustBegan)
             {
                 _frontDue = Time.time + wind.Range(0.8f, 4f);
@@ -288,7 +284,7 @@ namespace WinterOutbreak
 
         private static float Target(SnowSource source, Vector3 center, StormWind wind, float strength)
         {
-            // Each spot breathes on its own cycle; moving drift patches and the travelling gust add on top.
+            // Each spot breathes on its own cycle
             float cycle = Mathf.SmoothStep(0f, 1f,
                 Mathf.InverseLerp(0.3f, 0.72f, Mathf.PerlinNoise(Time.time / source.Period + source.Phase, source.Phase)));
             float field = wind.DriftField(source.Point);
@@ -327,7 +323,7 @@ namespace WinterOutbreak
             int cz = Mathf.FloorToInt(center.z / Cell);
             float reachDistance = Reach;
             int reach = Mathf.CeilToInt(reachDistance / Cell);
-            // Through an optic the far ring stretches along the aim in a cone a little wider than the view.
+            // Through an optic the far ring stretches along the aim in a cone a little wider than the view
             float coneCos = Mathf.Cos(Mathf.Min(35f, 40f / _zoom + 6f) * Mathf.Deg2Rad);
             float innerSq = Mathf.Max(0f, Inner - Cell * 0.5f);
             innerSq *= innerSq;
@@ -395,7 +391,7 @@ namespace WinterOutbreak
 
         private SnowSource Create(int gx, int gz, float height)
         {
-            // Deterministic per location: the same spot keeps the same temperament all raid.
+            // Deterministic per location: the same spot keeps the same temperament all raid
             float a = Hash(gx, gz, 1);
             float b = Hash(gx, gz, 2);
             float c = Hash(gx, gz, 3);

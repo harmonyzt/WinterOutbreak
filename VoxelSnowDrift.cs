@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace WinterOutbreak
 {
-    // Doorway drift as one smooth field.
+    // Doorway drift as one smooth field
     internal sealed partial class VoxelSnowArea
     {
         private const int DriftFieldCells = 9;
@@ -49,6 +49,7 @@ namespace WinterOutbreak
             int startZ = chunk.Z - DriftFieldCells;
             const int width = DriftRegionWidth;
 
+            // Classify the region: open floor, sheltered floor, or neither
             bool complete = true;
             for (int j = 0; j < width; j++)
             {
@@ -82,7 +83,7 @@ namespace WinterOutbreak
                 }
             }
 
-            // sheltered floor next to open floor on the same level, nothing solid between them.
+            // Openings
             _driftHeapCount = 0;
             for (int j = 0; j < width; j++)
             {
@@ -113,8 +114,7 @@ namespace WinterOutbreak
 
                         Vector3 from = GroundPoint(startX + i, startZ + j, _driftLevel[r] + DriftWallProbe);
                         Vector3 to = GroundPoint(startX + ni, startZ + nj, _driftLevel[n] + DriftWallProbe);
-                        
-                        // Doors snow does not blow in under a closed one
+                        // Doors count: snow does not blow in under a closed one
                         if (!Physics.Linecast(from, to, _doorMask, QueryTriggerInteraction.Ignore))
                         {
                             best = half;
@@ -128,7 +128,8 @@ namespace WinterOutbreak
                     }
                 }
             }
-            
+
+            // Shortest distance over connected sheltered floor, up to the reach
             while (_driftHeapCount > 0)
             {
                 int r = HeapPop();
@@ -153,7 +154,7 @@ namespace WinterOutbreak
                         continue;
                     }
 
-                    // drift cannot slip through a corner.
+                    // A diagonal step needs one of its two side cells walkable, so drift cannot slip through a corner
                     if (s >= 4)
                     {
                         int a = j * width + ni, b = nj * width + i;
@@ -173,7 +174,8 @@ namespace WinterOutbreak
             }
 
             chunk.DriftComplete = complete;
-            
+
+            // Store the chunk's own cells
             for (int z = 0; z < ChunkWidth; z++)
             {
                 for (int x = 0; x < ChunkWidth; x++)
@@ -184,14 +186,16 @@ namespace WinterOutbreak
                         ? MaxSmoothDrift * (1f - Mathf.SmoothStep(0f, 1f, d / DriftFieldReach))
                         : 0f;
                     ref Column column = ref chunk.Columns[chunk.ColumnIndex(chunk.X + x, chunk.Z + z)];
-                    
+
+                    // Single cells or pairs of drift (on a pallet or a frame beside a door) are dropped
                     column.DriftField = drift < 0.01f ? 0f : drift;
+
                     column.DriftFieldResolved = true;
                 }
             }
         }
 
-        // Whether a drift cell has enough snow around it to keep.
+        // Whether a drift cell has enough snow around it to keep
         private bool HasSnowAround(int r, int width)
         {
             int i = r % width;
@@ -228,7 +232,7 @@ namespace WinterOutbreak
                 for (int kx = key.x - 1; kx <= key.x + 1; kx++)
                 {
                     if (!_chunks.TryGetValue(new Vector2Int(kx, kz), out var chunk) || chunk.Columns == null
-                        || chunk.DriftComplete)
+                        || chunk.DriftComplete || IsOpenAndSampled(chunk))
                     {
                         continue;
                     }
@@ -238,10 +242,25 @@ namespace WinterOutbreak
                         chunk.Columns[i].DriftFieldResolved = false;
                     }
 
-                    // Corners read drift; prepare them again on the next rebuild.
+                    // Corners read drift
                     chunk.SurfacePrepared = false;
                 }
             }
+        }
+
+        // A fully sampled chunk with none keeps a zero field whatever its neighbours hold, so a refresh would only
+        // throw away its prepared surface
+        private static bool IsOpenAndSampled(Chunk chunk)
+        {
+            for (int i = 0; i < chunk.Columns.Length; i++)
+            {
+                if (!chunk.Columns[i].Sampled || chunk.Columns[i].Sheltered)
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         private void HeapPush(int r)

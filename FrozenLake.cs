@@ -10,14 +10,12 @@ using WaterSSR;
 
 namespace WinterOutbreak
 {
-    // Snow samplers take the terrain as their floor reference. Over a frozen lake the terrain is the lake bed, metres
-    // under the ice, so the ice read as a roof. Where frozen ice lies above the terrain hit, the ice is the terrain.
+    // Snow samplers take the terrain as their floor reference
     internal static class FrozenIce
     {
         internal static readonly List<IceField> Fields = new List<IceField>();
 
-        // Shore bank for voxel snow: full depth at the shore, feathering to nothing over a reach that wanders between
-        // 0.6 and 1.4 x ShoreReach; the open ice is left to the ice shader's sprinkles and drift streaks.
+        // Shore bank for voxel snow
         internal const float ShoreReach = 5f;
 
         internal sealed class IceField
@@ -30,11 +28,10 @@ namespace WinterOutbreak
             public float[] Distance;
             public float Top;
 
-            // Sea ice (FrozenSea.cs): only a band of the rectangle is frozen, the rest is open water.
+            // Sea ice (FrozenSea.cs)
             public bool Sea;
 
-            // The bullet collider under the ice: one box over the whole rectangle (lake), or per grid cell the strip
-            // covering it (swamp: colliders only over water, so cellars and bunkers below the water line stay clear).
+            // The bullet collider under the ice
             public Collider Floor;
             public Collider[] CellFloors;
 
@@ -51,8 +48,7 @@ namespace WinterOutbreak
                 return i >= 0 && j >= 0 && i < CellsA && j < CellsB ? CellFloors[j * CellsA + i] : null;
             }
 
-            // Metres to the shore, bilinear between cell centres; false off this field. Sea ice only (FrozenSea.cs):
-            // metres of water between a cell and the open sea, so sheltered coves freeze.
+            // Metres to the shore, bilinear between cell centres
             public float[] Shelter;
 
             public bool TrySample(float x, float z, out float distance)
@@ -87,14 +83,14 @@ namespace WinterOutbreak
             }
         }
 
-        // Multiplier for voxel snow depth at a mesh corner: 1 anywhere but on the ice surface.
+        // Multiplier for voxel snow depth at a mesh corner: 1 anywhere but on the ice surface
         internal static float SnowShare(float x, float z, float y)
         {
             for (int i = 0; i < Fields.Count; i++)
             {
                 IceField field = Fields[i];
 
-                // Under the sea's water line (the sea bed beside the ice's colliders): no snow.
+                // Under the sea's water line (the sea bed beside the ice's colliders): no snow
                 if (IsUnderSea(field, x, z, y))
                 {
                     return 0f;
@@ -112,8 +108,7 @@ namespace WinterOutbreak
             return 1f;
         }
 
-        // True for a point on the sea bed near the frozen coast (world coordinates): under the sea's water line, where
-        // no snow belongs.
+        // True for a point on the sea bed near the frozen coast (world coordinates)
         internal static bool IsUnderSea(float x, float z, float y)
         {
             for (int i = 0; i < Fields.Count; i++)
@@ -132,7 +127,7 @@ namespace WinterOutbreak
             return field.Sea && y < field.Top - 0.05f && field.TrySample(x, z, out float distance) && distance < 120f;
         }
 
-        // True for a point on the frozen surface itself (world coordinates).
+        // True for a point on the frozen surface itself (world coordinates)
         internal static bool IsIceTop(float x, float z, float y)
         {
             for (int i = 0; i < Fields.Count; i++)
@@ -148,12 +143,10 @@ namespace WinterOutbreak
         }
 
         // Things lying in the ice no higher than this (floating logs, a sunken boat's rim, boards on the surface) are
-        // sampled as ice.
+        // sampled as ice
         internal const float FrozenInRise = 0.20f;
 
-        // True for a point on a pier deck, jetty or other prop standing over the lake (world coordinates). The snow
-        // mesher gives those one thin, even cover. The shore field reads 0 on land and about 0.75 m on the first ice
-        // cell, so anything further out than one cell is over the lake and not on the shore's terrain.
+        // True for a point on a pier deck, jetty or other prop standing over the lake (world coordinates)
         internal static bool IsLakeDeck(float x, float z, float y)
         {
             for (int i = 0; i < Fields.Count; i++)
@@ -169,8 +162,7 @@ namespace WinterOutbreak
             return false;
         }
 
-        // True where someone standing at this point is on ice with (almost) no snow: the voxel snow there is feathered
-        // away but still sits a few millimetres above the ice, which made every step a snow step.
+        // True where someone standing at this point is on ice with (almost) no snow
         internal static bool IsBareIce(Vector3 position)
         {
             for (int i = 0; i < Fields.Count; i++)
@@ -178,7 +170,7 @@ namespace WinterOutbreak
                 IceField field = Fields[i];
                 if (Mathf.Abs(position.y - field.Top) < 0.4f && field.TrySample(position.x, position.z, out _))
                 {
-                    // The sea's field covers the whole coast, beach included: it only counts over its ice colliders.
+                    // The sea's field covers the whole coast, beach included: it only counts over its ice colliders
                     if (field.Sea && field.FloorAt(position.x, position.z) == null)
                     {
                         continue;
@@ -220,16 +212,7 @@ namespace WinterOutbreak
         }
     }
 
-    // Frozen lake. In winter, on the configured maps, each matching water surface of the water renderer (WaterForSSRv3
-    // target) is replaced by ice:
-    // - the water surface's MeshRenderer is disabled, so WaterRendererv3 stops drawing it (it skips disabled targets),
-    //   and its Water-layer ballistic collider is disabled, so no splashes or wading;
-    // - an ice quad is drawn over the same rectangle at the same height (the water quads run on under the shore, so the
-    //   terrain cuts the ice exactly where it cut the water);
-    // - a walkable box on LowPolyCollider and a bullet box on HighPolyCollider (Tile preset, Concrete step sound) sit
-    //   just under the surface;
-    // - where the quad runs past the edge of the map's terrain, invisible walls keep players on the map. Bots have no
-    //   navmesh on the ice yet. Everything is undone when the raid ends or the season is not winter.
+    // Frozen lake
     public sealed partial class WinterOutbreakPlugin
     {
         private const float IceThickness = 0.3f;
@@ -237,24 +220,21 @@ namespace WinterOutbreak
         private const float IceGridStep = 1.5f;
         private const float IceTextureMetres = 6f;
         // The drawn ice sits this far above the collider top, so voxel snow feathered to zero depth (which rests on the
-        // collider, up to 6 mm above it) stays hidden under the ice instead of flickering through it.
+        // collider, up to 6 mm above it) stays hidden under the ice instead of flickering through it
         private const float IceLift = 0.02f;
         private const float BackdropNavReach = 12f;
         private const float IceSprinkles = 0.6f;
         private const float IceDeepReach = 40f;
-        // Woods' swamp ponds are small (mostly under 40 m across), so their ice darkens over 6 m instead of 40 m.
+        // Woods' swamp ponds are small (mostly under 40 m across), so their ice darkens over 6 m instead of 40 m
         private const float SwampDeepReach = 6f;
         private const string SwampPath = "Water/Swamp/";
 
-        // Woods' river runs along the map's edge: frozen to look at only. No walkable ice, BSG's own walls and the fake
-        // floor beyond the edge stay as they are, every bank gets a wall, and bots are kept off its bed.
+        // Woods' river runs along the map's edge: frozen to look at only
         private const string RiverPath = "Water/River/";
         private const float RiverDeepReach = 15f;
         private const float RiverGridStep = 3f;
 
-        // Still ponds on other maps that freeze like Woods' swamp: walkable ice and no new walls. BSG's blockers in a
-        // pond come down, walls that belong to the map's edge stay (DisableLakeBorders). Shoreline's two sloped river
-        // meshes (Shoreline_River_01_A and _B) are not listed and stay water; so does the sea.
+        // Still ponds on other maps that freeze like Woods' swamp: walkable ice and no new walls
         private static readonly Dictionary<string, string[]> MapPonds = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
         {
             { "shoreline", new[] { "Shoreline_Lake_Water_", "Shoreline_Stump_Water_", "Shoreline_GardenPond_", "Shoreline_River_Cascade_" } },
@@ -263,7 +243,7 @@ namespace WinterOutbreak
         private const string IceBundleFile = "lakeice.bundle";
         private const string IceShaderPath = "assets/shaders/lakeice.shader";
 
-        // Baked ice maps in lakeice.bundle: material property and asset path.
+        // Baked ice maps in lakeice.bundle: material property and asset path
         private static readonly string[,] IceTexturePaths =
         {
             { "_MaskTex", "assets/textures/lakeice/lakeice_mask.png" },
@@ -282,14 +262,14 @@ namespace WinterOutbreak
             new List<KeyValuePair<FrozenIce.IceField, Texture2D>>();
         private static readonly int SnowColourId = Shader.PropertyToID("_SnowColor");
 
-        // The ice's own snow.
+        // The ice's own snow
         private static readonly Vector4 IceSnowColour = new Vector4(0.80f, 0.82f, 0.84f, 1f);
         private readonly Dictionary<Camera, UnityEngine.Rendering.CommandBuffer> _iceRedrawBuffers =
             new Dictionary<Camera, UnityEngine.Rendering.CommandBuffer>();
         private Camera.CameraCallback _iceRedrawCallback;
         private readonly Plane[] _iceFrustum = new Plane[6];
 
-        // The same targets EFT's snow pass writes (GBuffer0-2 and the lighting buffer).
+        // The same targets EFT's snow pass writes (GBuffer0-2 and the lighting buffer)
         private static readonly UnityEngine.Rendering.RenderTargetIdentifier[] IceTargetsHdr =
         {
             UnityEngine.Rendering.BuiltinRenderTextureType.GBuffer0,
@@ -331,11 +311,11 @@ namespace WinterOutbreak
             _frozenLakeSurfaces = new Fixed<string>("Water/Lake/");
             _frozenSwamp = new Fixed<bool>(true);
 
-            // 0.3 by default: at full strength the ripples read as moving water.
-            _iceRelief = Config.Bind("Frozen Lake", "Ice Relief", 0.3f,
-                new ConfigDescription("Ripples and ridges in the ice's shading. 0 turns them off, which is a little faster. "
-                    + "Applies from the next raid.",
-                    new AcceptableValueRange<float>(0f, 1f)));
+            // 0.3 by default: at full strength the ripples read as moving water
+            _iceRelief = BindSetting(PerformanceSection, "Ice Relief", 0.3f,
+                "Ripples and ridges in the ice's shading. 0 turns them off, which is a little faster. "
+                + "Applies from the next raid.", 5,
+                true, new AcceptableValueRange<float>(0f, 1f), "Frozen Lake");
 
             BindIceNavMeshSettings();
             BindFrozenSeaSettings();
@@ -351,8 +331,7 @@ namespace WinterOutbreak
 
             if (_iceMaterials.Count > 0)
             {
-                // Snow on the ice follows the snow depth: current depth over the configured maximum. Without voxel snow
-                // (normal winter weather) the ice keeps a light cover.
+                // Snow on the ice follows the snow depth: current depth over the configured maximum
                 float amount = _voxelSnow != null
                     ? Mathf.Clamp01(_voxelSnow.LastDepth / Mathf.Max(0.01f, _snowDepthCentimeters.Value * 0.01f))
                     : 0.5f;
@@ -367,7 +346,7 @@ namespace WinterOutbreak
                 }
             }
 
-            // Ambient emitters may only create their sources once the raid runs, so look once more after the freeze.
+            // Ambient emitters may only create their sources once the raid runs, so look once more after the freeze
             if (_lakeAudioRecheckAt > 0f && Time.time >= _lakeAudioRecheckAt)
             {
                 _lakeAudioRecheckAt = 0f;
@@ -485,9 +464,7 @@ namespace WinterOutbreak
                 int firstDisabled = _disabledWaterColliders.Count;
                 int colliders = DisableWaterColliders(bounds, water);
 
-                // The swamp sits inside the playable map among buildings and bunkers: no edge walls, and colliders only
-                // over its water. The river is the map's edge: look only, BSG's walls kept, walls on every bank. The
-                // lake keeps one box over its whole rectangle and walls at the map edge.
+                // The swamp sits inside the playable map among buildings and bunkers
                 string path = PathOf(target.Filter.transform);
                 bool pond = ponds != null && ponds.Any(f => path.IndexOf(f, StringComparison.OrdinalIgnoreCase) >= 0);
                 bool swamp = pond || path.IndexOf(SwampPath, StringComparison.OrdinalIgnoreCase) >= 0;
@@ -500,8 +477,7 @@ namespace WinterOutbreak
                 int walls = BuildIceWalls(root, origin, axisA, axisB, waterY, wallLayer, water, walling, borders, step, out int iceCells,
                     out int outsideCells, out int backdropCells, out int bordersDisabled, out var field, out var grid);
 
-                // A pond whose grid finds no water at all: the ground lies above the water quad everywhere, so the
-                // water is hidden anyway. Put it back and leave it alone instead of building ice nobody can see.
+                // A pond whose grid finds no water at all
                 if (pond && iceCells == 0)
                 {
                     RestoreDryPond(target.Renderer, root, firstDisabled);
@@ -521,9 +497,7 @@ namespace WinterOutbreak
                 }
                 else if (river)
                 {
-                    // Bullets and snow still meet the ice (HighPolyCollider: players do not collide with it), but there
-                    // is nothing to stand on. Every cell with navmesh on its bed is carved, so bots stay out from under
-                    // it.
+                    // Bullets and snow still meet the ice (HighPolyCollider
                     int strips = BuildIceStrips(root, origin, axisA, axisB, grid, field, lowPoly, highPoly, false, out _);
                     int carved = CarveDeepIce(root, origin, axisA, axisB, grid, waterY, 0.05f);
                     colliderNote = $"look only, {strips} bullet strips over the water, {carved} navmesh carvers on the bed";
@@ -537,8 +511,7 @@ namespace WinterOutbreak
 
                 Material material = CreateIceMaterial(field, out bool custom);
                 _iceDeepReach.Add(pond ? PondDeepReach(axisA, axisB) : swamp ? SwampDeepReach : river ? RiverDeepReach : IceDeepReach);
-                // Neighbouring river quads overlap where they join; a few millimetres between each surface keeps two
-                // ice layers at the same height from flickering against each other.
+                // Neighbouring river quads overlap where they join
                 BuildIceSurface(root, origin + Vector3.up * (IceLift + 0.003f * _hiddenWater.Count), axisA, axisB, material);
 
                 MuteLakeAudio(bounds);
@@ -548,7 +521,7 @@ namespace WinterOutbreak
 
             if (seaTargets.Count > 0)
             {
-                // The sea on its own: if it fails, the ponds frozen above stay.
+                // The sea on its own: if it fails, the ponds frozen above stay
                 try
                 {
                     ApplyFrozenSea(map, seaTargets, lowPoly, highPoly, wallLayer, water);
@@ -592,8 +565,7 @@ namespace WinterOutbreak
             return Mathf.Clamp(shortSide * 0.1f, SwampDeepReach, 20f);
         }
 
-        // The water quad's world rectangle: origin corner plus its two edges, from the mesh's local bounds (the meshes
-        // are not readable, but their bounds are). The flat axis is the one with no extent.
+        // The water quad's world rectangle
         private static bool TryIceRectangle(WaterObject target, out Vector3 origin, out Vector3 axisA, out Vector3 axisB)
         {
             Bounds local = target.Filter.sharedMesh.bounds;
@@ -623,9 +595,7 @@ namespace WinterOutbreak
                     continue;
                 }
 
-                // The surface's own water collider, or one at the same height lying mostly inside it: the swamp's
-                // BLOCKERS/WATER_LEVEL sits about 19 m off the drawn water, and the river's colliders that overlap the
-                // swamp's rectangle only at a corner must stay.
+                // The surface's own water collider, or one at the same height lying mostly inside it
                 Bounds b = collider.bounds;
                 float overlapX = Mathf.Min(b.max.x, surface.max.x) - Mathf.Max(b.min.x, surface.min.x);
                 float overlapZ = Mathf.Min(b.max.z, surface.max.z) - Mathf.Max(b.min.z, surface.min.z);
@@ -645,7 +615,7 @@ namespace WinterOutbreak
 
         private void BuildIceSurface(GameObject root, Vector3 origin, Vector3 axisA, Vector3 axisB, Material material)
         {
-            // Up-facing quad, split into a grid so lighting and fog are evaluated across it.
+            // Up-facing quad, split into a grid so lighting and fog are evaluated across it
             const int cells = 16;
             var vertices = new List<Vector3>();
             var uvs = new List<Vector2>();
@@ -661,8 +631,7 @@ namespace WinterOutbreak
                 }
             }
 
-            // Unity's front face for triangle (p0, p1, p2) faces along Cross(p1 - p0, p2 - p0). With a = origin, b = a
-            // + A and c = a + B, (a, b, c) faces along Cross(A, B); pick the order whose face points up.
+            // Unity's front face for triangle (p0, p1, p2) faces along Cross(p1 - p0, p2 - p0)
             bool upward = Vector3.Cross(axisA, axisB).y > 0f;
             var triangles = new List<int>();
             for (int j = 0; j < cells; j++)
@@ -724,17 +693,14 @@ namespace WinterOutbreak
             box.SetActive(true);
             if (ballistic && box.TryGetComponent<BaseBallistic>(out var surface))
             {
-                // Hard steps on bare ice. Where snow lies on the ice, Winter Outbreak' snow steps play instead.
+                // Hard steps on bare ice
                 surface.SurfaceSound = BaseBallistic.ESurfaceSound.Concrete;
             }
 
             return collider;
         }
 
-        // Bullets meet the ice like tile: a hard surface that stops them, so EFT leaves its impact marks (its decals
-        // draw at BeforeLighting, after the ice is redrawn). Tile's penetration values stay. Glass only breaks or lets
-        // things through when it belongs to a WindowBreaker, which the ice has none of (every glass check in Grenade,
-        // FlareCartridge, the rocket and explosion code looks one up first and skips without it).
+        // Bullets meet the ice like tile
         private void AddIceBallistic(GameObject box)
         {
             var ballistic = box.AddComponent<BallisticCollider>();
@@ -757,20 +723,15 @@ namespace WinterOutbreak
 
         private const byte CellLand = 0, CellIce = 1, CellOutside = 2, CellBackdrop = 3;
 
-        // Opens the lake. A 3 m grid over the rectangle classifies each cell: ice (ground below the water line),
-        // outside (no ground, or only the fake floor far below), land, and backdrop (land beside the ice with no bot
-        // navmesh within 4 m: the far shore beyond the map). BSG's LevelBorder colliders standing mostly over ice (the
-        // shore walls, and underwater blocks that poke through the ice) are disabled, and new invisible walls follow
-        // every edge between ice and outside or backdrop cells, merged into runs. LevelBorder colliders are skipped by
-        // the grid's rays.
+        // Opens the lake
         private enum IceWalls
         {
             None, // swamp: inside the map
             MapEdge, // lake: walls where the ice meets ground beyond the map or the far shore
-            EveryBank // river: walls along every bank; BSG's own walls stay
+            EveryBank // river: walls along every bank
         }
 
-        // Which of BSG's LevelBorder colliders over the ice come down.
+        // Which of BSG's LevelBorder colliders over the ice come down
         private enum IceBorders
         {
             Disable, // Woods' lake and swamp: every one standing mostly over the ice
@@ -831,7 +792,7 @@ namespace WinterOutbreak
 
             grid = new IceGrid { CellsA = na, CellsB = nb, State = state, GroundY = groundY, OnTerrain = onTerrain, WaterY = waterY };
 
-            // Land beside the ice with no navmesh nearby is backdrop (only where the edge gets walls).
+            // Land beside the ice with no navmesh nearby is backdrop (only where the edge gets walls)
             for (int i = 0; i < na && edgeWalls; i++)
             {
                 for (int j = 0; j < nb; j++)
@@ -850,9 +811,7 @@ namespace WinterOutbreak
                 }
             }
 
-            // The river is the map's edge: BSG's walls there (and the fake floor beyond) stay, and so does every wall
-            // along the sea. A pond whose water runs on beyond the map (cells with no ground under them, like
-            // Shoreline's west river cascade) keeps its walls too: they are the map's edge.
+            // The river is the map's edge
             bool keep = walling == IceWalls.EveryBank || borders == IceBorders.Keep
                 || (borders == IceBorders.PondOnly && outsideCells > 0);
             bordersDisabled = keep ? 0 : DisableLakeBorders(origin, axisA, axisB, na, nb, state, waterY, borderLayer,
@@ -867,7 +826,7 @@ namespace WinterOutbreak
 
             int walls = 0;
             Vector3 stepA = axisA / na, stepB = axisB / nb;
-            // Edges between (i,j) and (i+1,j): lines of constant A, runs along B.
+            // Edges between (i,j) and (i+1,j): lines of constant A, runs along B
             for (int i = 0; i + 1 < na; i++)
             {
                 int start = -1;
@@ -893,7 +852,7 @@ namespace WinterOutbreak
                 }
             }
 
-            // Edges between (i,j) and (i,j+1): runs along A.
+            // Edges between (i,j) and (i,j+1): runs along A
             for (int j = 0; j + 1 < nb; j++)
             {
                 int start = -1;
@@ -932,11 +891,7 @@ namespace WinterOutbreak
             public float WaterY;
         }
 
-        // Cells the swamp's ice colliders cover: open water, props standing in it (logs, stumps, boards: a 1.5 m hole
-        // around each would drop players through), and one cell of shore where the terrain is less than 1 m above the
-        // water, so no sliver of water is left uncovered at the edge. Props count only within 3 cells (4.5 m) of open
-        // water: further out they are rocks, bushes and building floors on dry land, and a box under a building with a
-        // cellar below the water line would cut through the cellar.
+        // Cells the swamp's ice colliders cover
         private static bool[,] IceColliderCells(IceGrid grid)
         {
             const int reach = 3;
@@ -972,7 +927,7 @@ namespace WinterOutbreak
             return false;
         }
 
-        // Merges marked cells into rectangles: runs along A in each row, then identical runs in following rows.
+        // Merges marked cells into rectangles
         private static List<RectInt> MergeCells(bool[,] cells, int na, int nb)
         {
             var rects = new List<RectInt>();
@@ -1016,15 +971,14 @@ namespace WinterOutbreak
         private static Vector3 RectCentre(Vector3 origin, Vector3 axisA, Vector3 axisB, IceGrid grid, RectInt rect)
             => origin + axisA * ((rect.x + rect.width * 0.5f) / grid.CellsA) + axisB * ((rect.y + rect.height * 0.5f) / grid.CellsB);
 
-        // Walk and bullet colliders over the swamp's water only, merged into strips. Each cell remembers its strip so
-        // the snow samplers find the ice under them in one lookup.
+        // Walk and bullet colliders over the swamp's water only, merged into strips
         private int BuildIceStrips(GameObject root, Vector3 origin, Vector3 axisA, Vector3 axisB, IceGrid grid,
             FrozenIce.IceField field, int lowPoly, int highPoly, bool walkable, out Transform walkRoot)
         {
             var rects = MergeCells(IceColliderCells(grid), grid.CellsA, grid.CellsB);
             field.CellFloors = new Collider[grid.CellsA * grid.CellsB];
 
-            // The walkable strips share one parent, which the bot navmesh build marks as its only walkable source.
+            // The walkable strips share one parent, which the bot navmesh build marks as its only walkable source
             var walk = new GameObject("walk");
             walk.transform.SetParent(root.transform, false);
             walkRoot = walkable ? walk.transform : null;
@@ -1051,9 +1005,7 @@ namespace WinterOutbreak
             return rects.Count;
         }
 
-        // Bots walk the pond edges and islands on navmesh that partly lies on the bed under the water. Only cells with
-        // navmesh on their bed are carved (most of the ponds have none), and carving is static (the obstacles never
-        // move).
+        // Bots walk the pond edges and islands on navmesh that partly lies on the bed under the water
         private static int CarveDeepIce(GameObject root, Vector3 origin, Vector3 axisA, Vector3 axisB, IceGrid grid, float waterY,
             float minDepth)
         {
@@ -1079,7 +1031,7 @@ namespace WinterOutbreak
                 Vector3 centre = RectCentre(origin, axisA, axisB, grid, rect);
                 var carver = new GameObject("Winter Outbreak ice navmesh carver");
                 carver.transform.SetParent(root.transform, false);
-                // Top 0.4 m under the ice: it cuts the pond bed's navmesh but not the bot navmesh built on the ice.
+                // Top 0.4 m under the ice
                 carver.transform.SetPositionAndRotation(new Vector3(centre.x, waterY - 3.4f, centre.z),
                     Quaternion.LookRotation(new Vector3(axisB.x, 0f, axisB.z).normalized, Vector3.up));
                 var obstacle = carver.AddComponent<NavMeshObstacle>();
@@ -1106,7 +1058,7 @@ namespace WinterOutbreak
             return (a == CellIce && wallB) || (b == CellIce && wallA);
         }
 
-        // Wall top: IceWallHeight above the higher of the ice and the ground beside it (backdrop shores can rise).
+        // Wall top
         private static float EdgeTop(float a, float b, float waterY)
         {
             float top = waterY;
@@ -1123,11 +1075,7 @@ namespace WinterOutbreak
             return top + IceWallHeight;
         }
 
-        // BSG LevelBorder colliders standing mostly over ice are switched off. Each one's footprint is sampled every
-        // metre at two heights (just under the ice and 1 m above it); a collider goes when a quarter or more of the
-        // points inside it lie over ice cells. Walls that mostly stand on land stay. For ponds on other maps only the
-        // pond's own blockers go: a collider reaching more than 10 m past the pond's rectangle is part of a longer
-        // wall, likely the map's edge (Lighthouse's south-west pond runs on beyond the map), and stays.
+        // BSG LevelBorder colliders standing mostly over ice are switched off
         private int DisableLakeBorders(Vector3 origin, Vector3 axisA, Vector3 axisB, int na, int nb, byte[,] state, float waterY, int borderLayer,
             bool pondOnly)
         {
@@ -1203,16 +1151,13 @@ namespace WinterOutbreak
             return disabled;
         }
 
-        // Woods: two lines that close off the middle and north of the lake, leaving the south end around the sawmill
-        // pier and a strip along each shore.
+        // Woods
         private const string WoodsNoWalkLine = "-36.6,351.2; 47.7,288.8; 217.4,361.3 | "
             + "-36.6,351.2; -44.4,319.6; -47.0,284.4; -42.7,249.3; -34.9,221.1; 4.3,207.1; 56.5,212.3; "
             + "104.3,221.1; 160.9,266.8; 211.3,310.8; 217.4,361.3";
         private const float NoWalkSegment = 4f;
 
-        // Invisible walls along [Frozen Lake] NoWalkLine. Each segment reaches from below the ice to 4 m over the
-        // highest ground found along it (sampled every 2 m, skipping water, level borders and the mod's own colliders),
-        // so a line that ends on the shore also blocks walking round its ends.
+        // Invisible walls along [Frozen Lake] NoWalkLine
         private int BuildNoWalkLine(GameObject root, int wallLayer, int waterLayer)
         {
             string setting = (Ice.NoWalkLine ?? "").Trim();
@@ -1232,7 +1177,7 @@ namespace WinterOutbreak
             int segments = 0;
             int lines = 0;
 
-            // Several lines are separated by '|'; each is smoothed and walled on its own.
+            // Several lines are separated by '|'
             foreach (string line in setting.Split('|'))
             {
                 var points = new List<Vector2>();
@@ -1255,8 +1200,7 @@ namespace WinterOutbreak
 
                 points = SmoothLine(points);
 
-                // The line's height comes from the frozen surface it crosses (the lake at y -16.6, not the swamp's
-                // 7.4).
+                // The line's height comes from the frozen surface it crosses (the lake at y -16.6, not the swamp's 7.4)
                 float waterY = FrozenIce.Fields[0].Top;
                 foreach (var field in FrozenIce.Fields)
                 {
@@ -1301,7 +1245,7 @@ namespace WinterOutbreak
         }
 
         // A Catmull-Rom curve through the points, cut into pieces about NoWalkSegment long, so the line bends smoothly
-        // instead of meeting at sharp corners. It passes through every given point; the ends stay where they are.
+        // instead of meeting at sharp corners
         private static List<Vector2> SmoothLine(List<Vector2> points)
         {
             if (points.Count < 3)
@@ -1345,8 +1289,7 @@ namespace WinterOutbreak
         private static string _iceShaderStatus = "not loaded";
 
         // Metres from each ice cell to the nearest land or backdrop cell (two-pass chamfer, 1 / 1.414 cell steps),
-        // minus half a cell so a cell beside the shore reads about 0.75 m. Land cells are 0; cells outside the map
-        // count like ice, so the north end carries no shore bank.
+        // minus half a cell so a cell beside the shore reads about 0.75 m
         private static FrozenIce.IceField BuildShoreField(Vector3 origin, Vector3 axisA, Vector3 axisB, int na, int nb, byte[,] state,
             bool[,] onTerrain, float waterY)
         {
@@ -1356,8 +1299,7 @@ namespace WinterOutbreak
             {
                 for (int i = 0; i < na; i++)
                 {
-                    // Only terrain (and the far shore) counts as shore. Piers, jetties and woodpiles on the ice are
-                    // land cells too, but a shore bank around them read as heaped snow.
+                    // Only terrain (and the far shore) counts as shore
                     byte s = state[i, j];
                     bool shore = (s == CellLand && onTerrain[i, j]) || s == CellBackdrop;
                     d[j * na + i] = shore ? 0f : 1e6f;
@@ -1431,7 +1373,7 @@ namespace WinterOutbreak
                 return false;
             }
 
-            // The bundle stays loaded for the session; the shader is reused by every raid.
+            // The bundle stays loaded for the session
             _iceShader = bundle.LoadAsset<Shader>(IceShaderPath);
             if (_iceShader == null || !_iceShader.isSupported)
             {
@@ -1492,7 +1434,7 @@ namespace WinterOutbreak
             return material;
         }
 
-        // Kept readable (no makeNoLongerReadable) so overlapping surfaces can rewrite it after joining their shores.
+        // Kept readable (no makeNoLongerReadable) so overlapping surfaces can rewrite it after joining their shores
         private static void WriteShoreTexture(Texture2D texture, FrozenIce.IceField field)
         {
             var pixels = new Color[field.Distance.Length];
@@ -1506,10 +1448,7 @@ namespace WinterOutbreak
         }
 
         // Neighbouring water quads overlap where one pond runs into the next (Shoreline's garden ponds, Woods' river
-        // pieces). Each field only sees the shore inside its own rectangle, so where the water carries on past the
-        // rectangle's edge it reads as far from shore: deep, dark ice cut off by a straight line. Fields at the same
-        // height take each other's shorter distances where they overlap, then spread them through their own cells
-        // again; a few rounds carry a shore through a chain of pieces.
+        // pieces)
         private int JoinOverlappingShores()
         {
             var fields = FrozenIce.Fields;
@@ -1577,7 +1516,7 @@ namespace WinterOutbreak
             return lowered;
         }
 
-        // The same two-pass chamfer as BuildShoreField, on distances already in metres.
+        // The same two-pass chamfer as BuildShoreField, on distances already in metres
         private static void SpreadShoreDistances(FrozenIce.IceField field)
         {
             int na = field.CellsA, nb = field.CellsB;
@@ -1619,7 +1558,7 @@ namespace WinterOutbreak
             var texture = new Texture2D(256, 256, TextureFormat.RGBA32, true) { name = "Winter Outbreak ice", wrapMode = TextureWrapMode.Repeat };
             var pixels = new Color32[256 * 256];
             var random = new System.Random(7);
-            // Streaky grey-blue ice with a few pale crack lines.
+            // Streaky grey-blue ice with a few pale crack lines
             for (int y = 0; y < 256; y++)
             {
                 for (int x = 0; x < 256; x++)
@@ -1664,9 +1603,7 @@ namespace WinterOutbreak
 
         private static readonly string[] WaterSoundWords = { "water", "lake", "shore", "wave", "river", "splash", "stream" };
 
-        // Lapping water kept playing over the ice. Every audio source within 30 m of the frozen surface is logged;
-        // those whose clip or object path names water are muted, together with an Ambient* or *Emitter component on the
-        // same object or its parents, so the emitter does not start them again.
+        // Lapping water kept playing over the ice
         private void MuteLakeAudio(Bounds surface)
         {
             Bounds area = surface;
@@ -1724,10 +1661,7 @@ namespace WinterOutbreak
         }
 
         // EFT paints its winter snow over the whole screen in a pass at BeforeReflections that overwrites the GBuffer
-        // (SnowWetRenderer), which buried the ice whatever its shader drew. So the ice's own deferred pass is drawn
-        // again straight after the game's snow, into the same targets that pass writes, for the main and optic cameras.
-        // The buffer is re-added every frame so it always runs last at BeforeReflections, after the game's snow and
-        // water buffers.
+        // (SnowWetRenderer), which buried the ice whatever its shader drew
         private void HookIceRedraw()
         {
             if (_iceRedrawCallback != null || _iceRenderers.Count == 0 || _iceMaterials.Count == 0)
@@ -1762,7 +1696,7 @@ namespace WinterOutbreak
                 buffer.SetRenderTarget(camera.allowHDR ? IceTargetsHdr : IceTargetsLdr,
                     UnityEngine.Rendering.BuiltinRenderTextureType.CameraTarget);
 
-                // Only the ice this camera can see.
+                // Only the ice this camera can see
                 GeometryUtility.CalculateFrustumPlanes(camera, _iceFrustum);
                 foreach (var renderer in _iceRenderers)
                 {

@@ -8,11 +8,7 @@ using UnityEngine.Rendering;
 namespace WinterOutbreak
 {
     /// <summary>
-    /// Fresh snow settling on corpses and loose loot lying outdoors. Each covered object is drawn a second time with
-    /// the snow coat shader (WinterStorms/SnowCoat, in snowprints.bundle) via Graphics.DrawMesh, which also works with
-    /// the game's unreadable item meshes. Only surfaces facing up keep snow; coverage grows from a patchy dusting to a
-    /// cap with the storm's snowfall. Loot stops at a partial cover so it stays findable. Corpses keep their snow
-    /// grains (CorpseSnowCover) underneath.
+    /// Fresh snow settling on corpses and loose loot lying outdoors.
     /// </summary>
     public sealed partial class WinterOutbreakPlugin
     {
@@ -26,12 +22,11 @@ namespace WinterOutbreak
         private const float HollowRestampSeconds = 60f;
         private const int MaxHollowsPerScan = 64;
 
-        // Items settle into the snow by weight, at most as deep as a boot print.
+        // Items settle into the snow by weight, at most as deep as a boot print
         private const float ItemMaxPress = 0.105f;
         private const float ItemGroundTolerance = 0.12f;
 
-        // Map props whose mesh the raised snow cannot read (VoxelSnowArea.TakeUncappedProps) get a coat instead: only
-        // small ones under open sky, since a coat cannot tell a covered floor inside a big mesh from its roof.
+        // Map props whose mesh the raised snow cannot read (VoxelSnowArea.TakeUncappedProps) get a coat instead
         private const int MaxPropCoats = 128;
         private const float PropCoatRange = 55f;
         private const float PropMaxWidth = 4.5f;
@@ -56,7 +51,7 @@ namespace WinterOutbreak
             public string Outcome;
         }
 
-        // Outcomes compare by their first word, so a growing depth does not log again every minute.
+        // Outcomes compare by their first word, so a growing depth does not log again every minute
         private static bool SameOutcomeKind(string a, string b)
         {
             int end = a.IndexOf(' ');
@@ -64,8 +59,7 @@ namespace WinterOutbreak
         }
 
         /// <summary>
-        /// Coats and item seating run before the snow shading update. An error here must never stop that update, so it
-        /// is caught, logged once and the coats stay off for the rest of the raid.
+        /// Coats and item seating run before the snow shading update.
         /// </summary>
         private void UpdateSnowCoatsSafely()
         {
@@ -117,7 +111,7 @@ namespace WinterOutbreak
                 }
             }
 
-            // Items are seated in the snow soon after the game ends their physics; coats can wait longer.
+            // Items are seated in the snow soon after the game ends their physics
             float now = Time.time;
             if (now >= _nextHollowScan)
             {
@@ -143,10 +137,7 @@ namespace WinterOutbreak
         }
 
         /// <summary>
-        /// Loose items rest on the ground collider under the snow and would vanish into it. Once an item's physics has
-        /// finished, it is raised to the snow surface, settled a few centimetres in, and presses a shallow hollow the
-        /// shape of its footprint. Rechecked every minute (sooner if it moves) so it follows the snow depth; the hollow
-        /// refills over 5 minutes after the item is picked up.
+        /// Loose items rest on the ground collider under the snow and would vanish into it.
         /// </summary>
         private void ScanItemHollows(Vector3 eye, float now)
         {
@@ -171,8 +162,7 @@ namespace WinterOutbreak
                     continue;
                 }
 
-                // The game removes the rigidbody once the item has settled. Moving it before then would only wake it
-                // and let it fall back through the snow.
+                // The game removes the rigidbody once the item has settled
                 if (item.RigidBody != null)
                 {
                     continue;
@@ -192,7 +182,7 @@ namespace WinterOutbreak
                     continue;
                 }
 
-                // A new resting place: the item lies on the ground under the snow.
+                // A new resting place: the item lies on the ground under the snow
                 float groundY = known ? rest.GroundY : bottom;
 
                 Vector3 middle = (start + end) * 0.5f;
@@ -203,7 +193,7 @@ namespace WinterOutbreak
                 string outcome;
                 if (!_voxelSnow.TryGetGroundSnow(middle, out float snowGround, out float depth))
                 {
-                    // The snow here may not be built yet.
+                    // The snow here may not be built yet
                     outcome = "no ground snow here yet";
                     retry = 2f;
                 }
@@ -252,8 +242,7 @@ namespace WinterOutbreak
         }
 
         /// <summary>
-        /// How far an item settles into fresh snow. Heavier items sink further: a grenade or pistol about 3 cm, a rifle
-        /// about 5 cm, a full backpack as deep as a boot print (10.5 cm). Never more than 60 % of the snow.
+        /// How far an item settles into fresh snow.
         /// </summary>
         private static float ItemPress(LootItem item, float depth)
         {
@@ -263,8 +252,7 @@ namespace WinterOutbreak
         }
 
         /// <summary>
-        /// The lowest point of the item's shown meshes. Disabled renderers (a switched-off light beam, a hidden LOD)
-        /// report empty bounds at the world origin and are skipped. False while the item is hidden.
+        /// The lowest point of the item's shown meshes.
         /// </summary>
         private static bool TryItemBottom(LootItem item, out float bottom)
         {
@@ -322,7 +310,7 @@ namespace WinterOutbreak
                 axisC = Vector3.forward * bounds.size.z;
             }
 
-            // The two box axes that spread furthest over the ground give the footprint's length and width.
+            // The two box axes that spread furthest over the ground give the footprint's length and width
             Vector3[] axes = { Flat(axisA), Flat(axisB), Flat(axisC) };
             System.Array.Sort(axes, (x, y) => y.sqrMagnitude.CompareTo(x.sqrMagnitude));
             float length = axes[0].magnitude;
@@ -337,7 +325,7 @@ namespace WinterOutbreak
             float reach = Mathf.Max(0f, length * 0.5f - halfWidth * 0.6f);
             start = center - direction * reach;
             end = center + direction * reach;
-            // A very short groove still needs a direction for the stamp.
+            // A very short groove still needs a direction for the stamp
             if (reach < 0.005f)
             {
                 end = center + direction * 0.01f;
@@ -370,7 +358,7 @@ namespace WinterOutbreak
                 }
             }
 
-            // Baking a pose costs a little per renderer: coat the largest few (body, armour, backpack, helmet).
+            // Baking a pose costs a little per renderer: coat the largest few (body, armour, backpack, helmet)
             renderers.Sort((x, y) => y.bounds.size.sqrMagnitude.CompareTo(x.bounds.size.sqrMagnitude));
             if (renderers.Count > 8)
             {
@@ -406,14 +394,14 @@ namespace WinterOutbreak
                     continue;
                 }
 
-                // Still falling or rolling: try again on a later scan.
+                // Still falling or rolling: try again on a later scan
                 var body = item.RigidBody;
                 if (body != null && !body.isKinematic && !body.IsSleeping() && body.velocity.sqrMagnitude > 0.01f)
                 {
                     continue;
                 }
 
-                // Outdoors under open sky only.
+                // Outdoors under open sky only
                 if (SnowSurface.IsInIndoorVolume(position + Vector3.up * 0.3f)
                     || Physics.Raycast(position + Vector3.up * 0.3f, Vector3.up, 30f, roofMask, triggers))
                 {
@@ -478,7 +466,7 @@ namespace WinterOutbreak
         }
 
         // The prop's renderers, every LOD of them so the coat follows whichever is drawn, or null when the prop is too
-        // big or not under open sky.
+        // big or not under open sky
         private static List<Renderer> FindPropCoatRenderers(Collider collider, out bool covered)
         {
             covered = false;
@@ -512,7 +500,7 @@ namespace WinterOutbreak
 
                 if (nodes.Count > maxNodes)
                 {
-                    // A search up into a whole map group: give up rather than coat its neighbours.
+                    // A search up into a whole map group: give up rather than coat its neighbours
                     return null;
                 }
             }
@@ -533,8 +521,7 @@ namespace WinterOutbreak
                 return null;
             }
 
-            // Open sky above the top, as for loose loot, except that tree canopy does not count: the ground snow under
-            // the Woods pines is full depth too.
+            // Open sky above the top, as for loose loot, except that tree canopy does not count
             const QueryTriggerInteraction triggers = QueryTriggerInteraction.Ignore;
             int roofMask = LayersMaskController.HighPolyCollider | LayersMaskController.LowPolyColliderLayerMask;
             Vector3 top = new Vector3(bounds.center.x, bounds.max.y + 0.2f, bounds.center.z);
@@ -591,7 +578,7 @@ namespace WinterOutbreak
         private readonly HashSet<int> _owners = new HashSet<int>();
         private readonly Dictionary<int, Vector3> _rejected = new Dictionary<int, Vector3>();
 
-        // Map props are dropped again past this distance and handed back to the plugin's pending list.
+        // Map props are dropped again past this distance and handed back to the plugin's pending list
         private const float PropKeepRange = 80f;
         private readonly HashSet<int> _propOwners = new HashSet<int>();
         private readonly List<Collider> _releasedProps = new List<Collider>();
@@ -665,7 +652,7 @@ namespace WinterOutbreak
                 bool baked = false;
                 if (source is SkinnedMeshRenderer skin)
                 {
-                    // A settled body does not move: bake its pose once.
+                    // A settled body does not move: bake its pose once
                     mesh = new Mesh { name = "Winter Outbreak snow coat pose" };
                     skin.BakeMesh(mesh);
                     baked = true;
@@ -681,7 +668,7 @@ namespace WinterOutbreak
                 }
 
                 // A statically batched renderer reports the whole combined mesh, and its own slice of it is not public
-                // in this Unity version: drawing it would coat every object in the batch.
+                // in this Unity version
                 if (!baked && source.isPartOfStaticBatch)
                 {
                     continue;
@@ -730,7 +717,7 @@ namespace WinterOutbreak
                     continue;
                 }
 
-                // isVisible also skips LOD levels that are not drawn, so only the shown LOD gets a coat.
+                // isVisible also skips LOD levels that are not drawn, so only the shown LOD gets a coat
                 var source = coat.Source;
                 if (!source.enabled || !source.isVisible || !source.gameObject.activeInHierarchy
                     || (source.transform.position - eye).sqrMagnitude > range * range)
@@ -759,10 +746,7 @@ namespace WinterOutbreak
         }
 
         /// <summary>
-        /// The LootItem component sits on the item's own pooled model. Picking the item up removes it from the world's
-        /// loot list, but the same object (component included) is reused, for example as the weapon in the player's
-        /// hands, so only the loot list tells whether it still lies on the ground. Corpses are coated only once and
-        /// keep theirs.
+        /// The LootItem component sits on the item's own pooled model.
         /// </summary>
         private static bool IsStillLoot(GameWorld world, Component owner)
         {
@@ -789,7 +773,7 @@ namespace WinterOutbreak
                 _owners.Remove(coat.OwnerId);
                 if (_propOwners.Remove(coat.OwnerId) && coat.Owner is Collider collider && collider != null)
                 {
-                    // Out of range: the plugin may coat it again when the player comes back.
+                    // Out of range: the plugin may coat it again when the player comes back
                     _releasedProps.Add(collider);
                 }
             }

@@ -46,7 +46,7 @@ namespace WinterOutbreak
             "wheel", "tyre", "tire", "barrel", "pallet", "crate", "barrier", "jersey", "cardboard",
             "dumpster", "wood_box_crash", "oldboardsheap", "sandbags", "metal_sheet_standing",
 
-            // Debris the ground snow should lie through
+            // Debris the ground snow should lie through, not climb
             "oldboardspile", "barn_crahs", "barn_crash"
         };
         private readonly SnowCoverSample[] _capSamples = new SnowCoverSample[MaxCapWidth * MaxCapWidth];
@@ -54,7 +54,7 @@ namespace WinterOutbreak
         private readonly SnowCoverSample[] _capCenters = new SnowCoverSample[(MaxCapWidth - 1) * (MaxCapWidth - 1)];
         private readonly List<SnowImpression> _raisedImpressions = new List<SnowImpression>();
 
-        // During the deployment countdown the caller passes a longer deadline and a bigger column budget.
+        // During the deployment countdown the caller passes a longer deadline and a bigger column budget
         private void SampleRaisedChunk(Chunk chunk, long rebuildDeadline, bool countdown = false)
         {
             long deadline = countdown ? rebuildDeadline
@@ -76,15 +76,13 @@ namespace WinterOutbreak
                 if (patch.Faces != null && column.HasRoof && Mathf.Abs(PatchHeight(patch) - column.RoofHeight) < RoofJoinTolerance)
                 {
                     // The cap lies on this column's stored open roof
-                    patch = new RaisedSnowPatch(patch.Points, patch.Faces, patch.Support, patch.ModelName, patch.Divisions,
-                        patch.Centers, true);
                     if (!_groundJoinedSupports.Contains(patch.Support)
                         && FlushSides(patch, x, z) != 0)
                     {
                         _groundJoinedSupports.Add(patch.Support);
 
                         // Caps of this roof built before now kept the thin cover: rebuild only the chunks that hold
-                        // them.
+                        // them
                         foreach (var other in _chunks.Values)
                         {
                             if (other.RaisedReady && other.RaisedSurfaces != null && HoldsSupport(other, patch.Support))
@@ -128,7 +126,7 @@ namespace WinterOutbreak
             Vector3 start = ground + Vector3.up * scanHeight;
             float reach = scanHeight - minimumRise;
 
-            // Shelter still ends the search.
+            // Shelter still ends the search
             for (int attempt = 0; attempt < RaisedStackHits && reach > 0f; attempt++)
             {
                 if (!Physics.Raycast(start, Vector3.down, out var hit, reach, _solidMask, triggers)
@@ -501,7 +499,7 @@ namespace WinterOutbreak
                     break;
                 }
 
-                // A cutout can be a full collision plane with only a wire pattern rendered.
+                // A cutout can be a full collision plane with only a wire pattern rendered
                 var renderer = part.GetComponent<Renderer>();
                 var material = renderer != null ? renderer.sharedMaterial : null;
                 if (material != null && (material.GetTag("RenderType", false) == "TransparentCutout"
@@ -587,7 +585,7 @@ namespace WinterOutbreak
                 return true;
             }
 
-            // On a creased face, predict the center from a corner that lies on the same facet.
+            // On a creased face, predict the center from a corner that lies on the same facet
             float half = spacing * 0.5f;
             return (nw.Valid && TryCapPoint(model, new SnowCoverSample(nw.Position + _origin, nw.Normal), half, half,
                         minimumNormal, out center))
@@ -671,7 +669,7 @@ namespace WinterOutbreak
                 int start = _vertices.Count;
                 int flushSides = GroundFlushSides(patch, cellX, cellZ);
 
-                // A joined cap grows between rebuilds like the ground beside it, so the two stay level.
+                // A joined cap grows between rebuilds like the ground beside it, so the two stay level
                 float growth = GroundJoined(patch) ? 1f : 0f;
                 for (int z = 0; z < width; z++)
                 {
@@ -719,7 +717,7 @@ namespace WinterOutbreak
         private const int FlushWest = 1, FlushEast = 2, FlushSouth = 4, FlushNorth = 8;
 
         // Roofs (raised supports) with at least one cap level with the open ground beside it, such as the Woods
-        // bunker's earth roof. Their caps hold the ground's depth; other roofs keep the thin prop cover.
+        // bunker's earth roof
         private readonly HashSet<Collider> _groundJoinedSupports = new HashSet<Collider>();
 
         private static bool HoldsSupport(Chunk chunk, Collider support)
@@ -735,13 +733,14 @@ namespace WinterOutbreak
             return false;
         }
 
+        // On the Woods bunker that left 911 of 2,225 roof caps at 10 cm among caps at the ground's 28 cm, and the 487
+        // borders between them read as stepped outlines
         private bool GroundJoined(RaisedSnowPatch patch)
         {
-            return patch.JoinsGround && _groundJoinedSupports.Contains(patch.Support);
+            return patch.Support != null && _groundJoinedSupports.Contains(patch.Support);
         }
 
-        // Sides of a ground-joined cap where open ground lies level with it and no other cap does: the cap keeps its
-        // full depth up to that edge and the ground snow carries on from there.
+        // Sides of a ground-joined cap where open ground lies level with it and no other cap does
         private int GroundFlushSides(RaisedSnowPatch patch, int cellX, int cellZ)
         {
             return GroundJoined(patch) ? FlushSides(patch, cellX, cellZ) : 0;
@@ -773,15 +772,20 @@ namespace WinterOutbreak
             int x, int z, float snowDepth, int flushSides)
         {
             var point = patch.Points[z * (patch.Divisions + 1) + x];
-            float west = (flushSides & FlushWest) != 0 ? 1f : EdgeCover(patch, neighbors.West, x, z, -1, 0);
-            float east = (flushSides & FlushEast) != 0 ? 1f : EdgeCover(patch, neighbors.East, x, z, 1, 0);
-            float south = (flushSides & FlushSouth) != 0 ? 1f : EdgeCover(patch, neighbors.South, x, z, 0, -1);
-            float north = (flushSides & FlushNorth) != 0 ? 1f : EdgeCover(patch, neighbors.North, x, z, 0, 1);
+            bool joined = GroundJoined(patch);
+
+            // A joined roof holds ground-deep snow, which fell to nothing within 40 % of a cell at the roof's open
+            // edges and read as a vertical face
+            float taperShare = joined ? JoinedEdgeTaper : CapEdgeTaper;
+            float west = (flushSides & FlushWest) != 0 ? 1f : EdgeCover(patch, neighbors.West, x, z, -1, 0, taperShare);
+            float east = (flushSides & FlushEast) != 0 ? 1f : EdgeCover(patch, neighbors.East, x, z, 1, 0, taperShare);
+            float south = (flushSides & FlushSouth) != 0 ? 1f : EdgeCover(patch, neighbors.South, x, z, 0, -1, taperShare);
+            float north = (flushSides & FlushNorth) != 0 ? 1f : EdgeCover(patch, neighbors.North, x, z, 0, 1, taperShare);
             float edge = Mathf.Min(Mathf.Min(west, east), Mathf.Min(south, north));
             bool rock = patch.Divisions == RockDivisions;
 
-            // A cap on a roof level with the ground holds what the ground holds, not the 10 cm of a prop top.
-            float depth = GroundJoined(patch) ? snowDepth * GroundVariation(point.Position.x, point.Position.z)
+            // A cap on a roof level with the ground holds what the ground holds, not the 10 cm of a prop top
+            float depth = joined ? snowDepth * GroundVariation(point.Position.x, point.Position.z)
                 : RaisedThickness(snowDepth, rock);
             float slope = Mathf.SmoothStep(0f, 1f,
                 Mathf.InverseLerp(rock ? MinimumRockNormal : MinimumCapNormal, 0.98f, point.Normal.y));
@@ -957,10 +961,14 @@ namespace WinterOutbreak
                 ? patch : default;
         }
 
-        private static float EdgeCover(RaisedSnowPatch patch, RaisedSnowPatch neighbor, int x, int z, int dx, int dz)
+        private const float CapEdgeTaper = 0.4f;
+        private const float JoinedEdgeTaper = 1f;
+
+        private static float EdgeCover(RaisedSnowPatch patch, RaisedSnowPatch neighbor, int x, int z, int dx, int dz,
+            float taperShare)
         {
             int end = patch.Divisions;
-            float taperCells = end * 0.4f;
+            float taperCells = end * taperShare;
             int borderX = dx < 0 ? 0 : dx > 0 ? end : x;
             int borderZ = dz < 0 ? 0 : dz > 0 ? end : z;
             int distance = Mathf.Abs(x - borderX) + Mathf.Abs(z - borderZ);
@@ -971,8 +979,7 @@ namespace WinterOutbreak
 
             if (neighbor.Faces != null)
             {
-                // Patches can use different subdivisions (rock 10, props 6). Map the border point onto the neighbor's
-                // own grid so both sides of the seam keep their buildup.
+                // Patches can use different subdivisions (rock 10, props 6)
                 int other = neighbor.Divisions;
                 int along = Mathf.RoundToInt((dx != 0 ? z : x) * (float)other / end);
                 int oppositeX = dx == 0 ? along : (dx < 0 ? other : 0);
@@ -1000,7 +1007,7 @@ namespace WinterOutbreak
             int first = sideRunsAlongZ ? face : face * end;
             int stride = sideRunsAlongZ ? end : 1;
 
-            // Both incident spans must exist or the supported vertices can leave a raised lip.
+            // Both incident spans must exist or the supported vertices can leave a raised lip
             byte side = sideRunsAlongZ ? (border == 0 ? SurfaceWest : SurfaceEast)
                 : (border == 0 ? SurfaceNorth : SurfaceSouth);
             return (along == 0 || (patch.Faces[first + (along - 1) * stride] & side) != 0)
@@ -1015,13 +1022,10 @@ namespace WinterOutbreak
             public readonly Collider Support;
             public readonly string ModelName;
             public readonly int Divisions;
-
-            // The cap lies on a stored open roof level with the ground around it (see SampleRaisedChunk).
-            public readonly bool JoinsGround;
             public bool HasSupport => Points != null;
 
             public RaisedSnowPatch(SnowCoverSample[] points, byte[] faces, Collider support, string modelName, int divisions,
-                SnowCoverSample[] centers = null, bool joinsGround = false)
+                SnowCoverSample[] centers = null)
             {
                 Points = points;
                 Faces = faces;
@@ -1029,7 +1033,6 @@ namespace WinterOutbreak
                 Support = support;
                 ModelName = modelName;
                 Divisions = divisions;
-                JoinsGround = joinsGround;
             }
         }
 

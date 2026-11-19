@@ -5,11 +5,7 @@ using UnityEngine;
 namespace WinterOutbreak
 {
     /// <summary>
-    /// GPU print texture for ground snow impressions. Stamps (boots, prone, bodies, craters) are drawn into a
-    /// world-space texture that follows the player, and refill there over their own duration. The snow material
-    /// (WinterStorms/SnowPrints in snowprints.bundle) presses vertices down by this texture and takes its normals from
-    /// it, so prints and their refill never rebuild a mesh. The shader source and its build script live in the
-    /// WinterOutbreakShaders Unity project next to this one.
+    /// GPU print texture for ground snow impressions.
     /// </summary>
     internal sealed class SnowPrintTexture
     {
@@ -17,7 +13,7 @@ namespace WinterOutbreak
             KindGrenadeMelt = 5, KindFireMelt = 6, KindItem = 7;
         private const string CoatShaderPath = "assets/shaders/snowcoat.shader";
         private const int ScorchResolution = Resolution / 2;
-        // Soot from a grenade blast fades over this long (new snow covers it).
+        // Soot from a grenade blast fades over this long (new snow covers it)
         private const float ScorchSeconds = 420f;
 
         private const string BundleFile = "snowprints.bundle";
@@ -31,7 +27,7 @@ namespace WinterOutbreak
         private const float CompressionScale = 0.5f;
         private const float RateScale = 0.064f;
         private const float UpdateInterval = 0.1f;
-        // The player's own prints (crawling, steps) update sooner, so a furrow advances smoothly, not in 10 Hz steps.
+        // The player's own prints (crawling, steps) update sooner, so a furrow advances smoothly, not in 10 Hz steps
         private const float UrgentUpdateInterval = 0.033f;
         private const int MaxStampsPerPass = 16;
         private const float RimScale = 0.1f;
@@ -122,6 +118,23 @@ namespace WinterOutbreak
             return new SnowPrintTexture(format);
         }
 
+        // The far snow's top-down picture and its height texture (FarSnow.cs)
+        internal static Shader HeightShader { get; private set; }
+
+        internal static Shader LoadHeightShader()
+        {
+            LoadShaders();
+            return HeightShader;
+        }
+
+        internal static Shader FarHeightShader { get; private set; }
+
+        internal static Shader LoadFarHeightShader()
+        {
+            LoadShaders();
+            return FarHeightShader;
+        }
+
         private static bool LoadShaders()
         {
             if (_loadAttempted)
@@ -145,10 +158,12 @@ namespace WinterOutbreak
                 return false;
             }
 
-            // The bundle stays loaded for the session; the shaders are reused by every raid.
+            // The bundle stays loaded for the session
             _snowShader = bundle.LoadAsset<Shader>(SnowShaderPath);
             _updateShader = bundle.LoadAsset<Shader>(UpdateShaderPath);
             _coatShader = bundle.LoadAsset<Shader>(CoatShaderPath);
+            HeightShader = bundle.LoadAsset<Shader>("assets/shaders/snowheight.shader");
+            FarHeightShader = bundle.LoadAsset<Shader>("assets/shaders/farheight.shader");
             if (_snowShader == null || _updateShader == null || !_snowShader.isSupported || !_updateShader.isSupported)
             {
                 _loadStatus = "GPU snow prints off: shaders missing or unsupported on this GPU, using CPU prints";
@@ -168,7 +183,7 @@ namespace WinterOutbreak
         }
 
         /// <summary>
-        /// Queues a stamp in world XZ. The shape matches SnowImpression.Compression at its start.
+        /// Queues a stamp in world XZ.
         /// </summary>
         public void Queue(Vector2 center, Vector2 forward, float depth, int kind, float blastRadius, float duration,
             bool urgent = false)
@@ -203,7 +218,7 @@ namespace WinterOutbreak
                 }
                 else
                 {
-                    // Nothing to carry over on the first placement.
+                    // Nothing to carry over on the first placement
                     shift = new Vector2(2f, 2f);
                     _lastUpdate = now;
                     _recentredFrom = null;
@@ -216,7 +231,7 @@ namespace WinterOutbreak
                 moved = true;
             }
 
-            // Stamps wait for the next tick, so many bots walking cannot force a pass every frame.
+            // Stamps wait for the next tick, so many bots walking cannot force a pass every frame
             float elapsed = now - _lastUpdate;
             float interval = _urgent ? UrgentUpdateInterval : UpdateInterval;
             if (!moved && (elapsed < interval || (_pendingA.Count == 0 && now > _liveUntil)))
@@ -229,7 +244,7 @@ namespace WinterOutbreak
                 _liveUntil = Mathf.Max(_liveUntil, now + 1f / _pendingB[i].w);
                 if (Mathf.Approximately(_pendingB[i].y, KindGrenadeMelt))
                 {
-                    // Keep updating while soot fades, even after the melt itself has refilled.
+                    // Keep updating while soot fades, even after the melt itself has refilled
                     _liveUntil = Mathf.Max(_liveUntil, now + ScorchSeconds);
                 }
             }
@@ -254,21 +269,21 @@ namespace WinterOutbreak
                 _updateMaterial.SetVectorArray(StampBId, _stampB);
                 Graphics.Blit(_read, _write, _updateMaterial, 0);
                 (_read, _write) = (_write, _read);
-                // Soot on the same window and stamps, at half resolution.
+                // Soot on the same window and stamps, at half resolution
                 _updateMaterial.SetVector(ScorchId, new Vector4(ScorchSeconds, 0f, 0f, 0f));
                 Graphics.Blit(_scorchRead, _scorchWrite, _updateMaterial, 2);
                 (_scorchRead, _scorchWrite) = (_scorchWrite, _scorchRead);
                 Passes++;
                 Stamps += count;
 
-                // Later batches of the same update neither move nor refill again.
+                // Later batches of the same update neither move nor refill again
                 shift = Vector2.zero;
                 decay = 0f;
                 offset += count;
             }
             while (offset < _pendingA.Count);
 
-            // Snow pushed aside around the prints, from the updated compression.
+            // Snow pushed aside around the prints, from the updated compression
             _updateMaterial.SetVector(RimSettingsId, new Vector4(RimScale, RimShare, MaxRim, 0f));
             Graphics.Blit(_read, _rim, _updateMaterial, 1);
             RenderTexture.active = active;

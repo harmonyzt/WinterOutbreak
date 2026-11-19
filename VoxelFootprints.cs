@@ -15,16 +15,12 @@ namespace WinterOutbreak
 
         // GPU prints (SnowPrintTexture)
         private const int GpuFootprintsPerChunk = 256;
-        
-        // Background stamps (bot steps, BTR tracks)
+        // Background stamps (bot steps, BTR tracks) this close to the player refine their cells promptly
         private const float PromptRefineRadius = 35f;
         private const int GpuSubdivision = 8;
-        private const float GpuCoarsenDelay = 10f;
-        
-        // A cell is refined when its centre lies within this distance of a print's outline (up to 17 cm).
+        // A cell is refined when its centre lies within this distance of a print's outline
         private const float DetailMargin = 0.36f;
         private readonly SnowPrintTexture _prints;
-        
         // UV3.w = how fast the vertex rises with snow depth (metres per metre)
         private readonly List<Vector4> _printLimits = new List<Vector4>();
         private const float GrowthProbe = 0.01f;
@@ -33,17 +29,10 @@ namespace WinterOutbreak
         {
             return vertex < _printLimits.Count ? _printLimits[vertex].w : 0f;
         }
-        private long _gpuStampsSkipped;
-        private long _gpuStampsRefined;
-        private long _gpuStampsRedrawn;
         private const float ProneMaxCompression = 0.15f;
         private const float ProneDepthShare = 0.8f;
-        
-        // Skirts hang this far below the lowest a refined edge can be pressed.
+        // Skirts hang this far below the lowest a refined edge can be pressed
         private const float SkirtDrop = 0.08f;
-
-        internal long AnimatedBootPlants;
-        internal long StepSoundBootPlants;
 
         public string PrintStatus { get; }
 
@@ -56,8 +45,7 @@ namespace WinterOutbreak
 
         public bool StampProne(Vector3 position, Vector3 forward, float refillSeconds)
         {
-            // With GPU prints the trail (PressProneTrail) draws the furrow; drawing this stamp too would drop the full
-            // depth in one step. It still refines the mesh and redraws the furrow when the window moves.
+            // With GPU prints the trail (PressProneTrail) draws the furrow
             return StampImpression(position, forward, refillSeconds, true, drawNow: _prints == null);
         }
 
@@ -65,7 +53,7 @@ namespace WinterOutbreak
 
         /// <summary>
         /// Presses the prone body into the print texture only, between the listed prone stamps, so a crawl reads as one
-        /// continuous furrow. The listed stamps (StampProne) still refine the mesh and redraw the trail.
+        /// continuous furrow.
         /// </summary>
         public void PressProneTrail(Vector3 position, Vector3 forward, float refillSeconds, float settle = 1f)
         {
@@ -75,7 +63,7 @@ namespace WinterOutbreak
             }
 
             Vector3 local = position - _origin;
-            // settle eases the body in while lying down; the texture keeps the deepest press, so it only grows.
+            // settle eases the body in while lying down
             var stamp = new SnowImpression(new Vector2(local.x, local.z), new Vector2(forward.x, forward.z),
                 Mathf.Min(ProneMaxCompression, depth * ProneDepthShare) * Mathf.Clamp01(settle), Time.time, refillSeconds, true);
             if (InPrintWindow(stamp))
@@ -89,6 +77,13 @@ namespace WinterOutbreak
             return StampImpression(position, forward, refillSeconds, true, corpse: true);
         }
 
+        // No published chunk at this point yet: the snow here is not known, as opposed to known to be bare
+        private bool IsUnbuiltGround(Vector3 local)
+        {
+            Chunk chunk = GetChunk(Mathf.FloorToInt(local.x / CellWidth), Mathf.FloorToInt(local.z / CellWidth));
+            return chunk == null || !chunk.Active;
+        }
+
         private bool StampImpression(Vector3 position, Vector3 forward, float refillSeconds, bool prone,
             bool aiStep = false, bool corpse = false, bool drawNow = true)
         {
@@ -96,14 +91,25 @@ namespace WinterOutbreak
             Collider raisedSupport = null;
             float depth = 0f;
             bool raised = !prone && TryGetRaisedFootSupport(local, out raisedSupport, out depth);
-            if (!raised && (!TryGetDepth(position, out depth) || depth < (prone ? 0.025f : 0.012f)))
+            if (!raised && !TryGetDepth(position, out depth))
+            {
+                // Where the chunk is simply not built, keep the player's own step at the storm's depth
+                if (prone || aiStep || corpse || !IsUnbuiltGround(local))
+                {
+                    return false;
+                }
+
+                depth = LastDepth;
+            }
+
+            if (!raised && depth < (prone ? 0.025f : 0.012f))
             {
                 return false;
             }
 
             var center = new Vector2(local.x, local.z);
             var flatForward = new Vector2(forward.x, forward.z);
-            // A prone player sinks most of the way in, so the view and the weapon clear the snow ahead.
+            // A prone player sinks most of the way in, so the view and the weapon clear the snow ahead
             float compression = corpse ? Mathf.Min(0.13f, depth * 0.91f)
                 : prone ? Mathf.Min(ProneMaxCompression, depth * ProneDepthShare)
                 : Mathf.Min(0.105f, depth * 0.84f);
@@ -116,13 +122,18 @@ namespace WinterOutbreak
         }
 
         /// <summary>
-        /// Presses a tyre track along a wheel's path from start to end (BTR). Tracks are batched with other background
-        /// stamps and are the first to give way when a chunk's stamp list is full.
+        /// Presses a tyre track along a wheel's path from start to end (BTR).
         /// </summary>
         public bool StampTrack(Vector3 start, Vector3 end, float halfWidth, float maxDepth, float refillSeconds)
         {
             Vector3 middle = (start + end) * 0.5f;
-            if (!TryGetDepth(middle, out float depth) || depth < 0.02f)
+            if (!TryGetDepth(middle, out float depth))
+            {
+                // Use the storm's depth
+                depth = LastDepth;
+            }
+
+            if (depth < 0.02f)
             {
                 return false;
             }
@@ -137,8 +148,7 @@ namespace WinterOutbreak
         }
 
         /// <summary>
-        /// A bullet hole: a small round pit with a rim. Batched like other background stamps (prompt within 35 m), so a
-        /// burst into the snow does not rebuild a chunk per round.
+        /// A bullet hole: a small round pit with a rim.
         /// </summary>
         public void StampBulletHole(Vector3 position, float radius, float depth, float refillSeconds)
         {
@@ -148,15 +158,14 @@ namespace WinterOutbreak
             AddImpression(stamp);
         }
 
-        // Two random phases for a round stamp's lobed outline (carried in its forward vector).
+        // Two random phases for a round stamp's lobed outline (carried in its forward vector)
         private static Vector2 RandomPhases()
         {
             return new Vector2(Random.Range(0f, 6.283f), Random.Range(0f, 6.283f));
         }
 
         /// <summary>
-        /// Melts snow down to the ground inside a lobed outline with a soft edge (grenade blasts, fires). A grenade
-        /// melt also leaves soot that fades over minutes.
+        /// Melts snow down to the ground inside a lobed outline with a soft edge (grenade blasts, fires).
         /// </summary>
         public void StampMelt(Vector3 position, float radius, float depth, float refillSeconds, bool scorch,
             Vector2? phases = null)
@@ -239,8 +248,7 @@ namespace WinterOutbreak
         }
 
         /// <summary>
-        /// The print texture only covers the area around the player. When it moves, stamps that come into view (distant
-        /// bot steps, your own older tracks) are drawn again from the stamp lists and their cells refined.
+        /// The print texture only covers the area around the player.
         /// </summary>
         private void RedrawPrintsAfterRecentre()
         {
@@ -274,10 +282,10 @@ namespace WinterOutbreak
                         continue;
                     }
 
-                    // Each stamp is listed in every chunk it reaches; draw it from the chunk holding its centre.
-                    if (ChunkKeyAt(stamp.Center) == chunk.Key && QueuePrint(stamp, now))
+                    // Each stamp is listed in every chunk it reaches
+                    if (ChunkKeyAt(stamp.Center) == chunk.Key)
                     {
-                        _gpuStampsRedrawn++;
+                        QueuePrint(stamp, now);
                     }
 
                     refine |= chunk.Active && ReferenceEquals(stamp.RaisedSupport, null) && AddsDetail(chunk, stamp);
@@ -312,7 +320,7 @@ namespace WinterOutbreak
             int maxZ = Mathf.FloorToInt((center.y + reach) / ChunkSize);
 
             // Ground prints outside the texture window are kept in the lists below and drawn, and their cells refined,
-            // when the window reaches them (RedrawPrintsAfterRecentre).
+            // when the window reaches them (RedrawPrintsAfterRecentre)
             bool visible = InPrintWindow(stamp);
             if (visible && drawNow)
             {
@@ -327,7 +335,7 @@ namespace WinterOutbreak
                     chunk.Footprints ??= new List<SnowImpression>();
                     if (chunk.Footprints.Count >= _maxFootprintsPerChunk)
                     {
-                        // Bot footsteps give way first, then BTR tracks; the player's own prints last.
+                        // Bot footsteps give way first, then BTR tracks
                         int oldestAiStep = chunk.Footprints.FindIndex(existing =>
                             existing.IsAiStep && existing.Kind != SnowPrintTexture.KindTrack);
                         if (oldestAiStep < 0)
@@ -346,25 +354,22 @@ namespace WinterOutbreak
                     chunk.Footprints.Add(stamp);
                     if (_prints != null && !ReferenceEquals(stamp.RaisedSupport, null))
                     {
-                        // A print on a raised cap: the texture shows it on the cap's existing vertices.
+                        // A print on a raised cap: the texture shows it on the cap's existing vertices
                         continue;
                     }
 
                     if (_prints != null && ReferenceEquals(stamp.RaisedSupport, null))
                     {
-                        // The texture already shows the print. Rebuild only when it reaches unrefined cells.
+                        // The texture already shows the print
                         if (!visible || !AddsDetail(chunk, stamp))
                         {
-                            _gpuStampsSkipped++;
                             continue;
                         }
-
-                        _gpuStampsRefined++;
                     }
 
                     if (stamp.IsAiStep && DistanceSquared(chunk, _previousPosition) > PromptRefineRadius * PromptRefineRadius)
                     {
-                        // Batch distant bot tracks with regular refreshes so they cannot delay terrain sampling.
+                        // Batch distant bot tracks with regular refreshes so they cannot delay terrain sampling
                         chunk.FootprintRefresh = Mathf.Min(chunk.FootprintRefresh, Time.time + 0.15f);
                     }
                     else
@@ -398,8 +403,7 @@ namespace WinterOutbreak
                 return PrepareGpuFootprints(chunk, now);
             }
 
-            // Refill is only animated closely near the player. Distant tracks refresh less often, since every refresh
-            // rebuilds the whole chunk mesh.
+            // Refill is only animated closely near the player
             chunk.FootprintRefresh = now + (DistanceSquared(chunk, _previousPosition)
                 <= NearbyDepthRadius * NearbyDepthRadius ? NearbyRefillSeconds : DistantRefillSeconds);
             if (!chunk.Footprints.Exists(stamp => ReferenceEquals(stamp.RaisedSupport, null)))
@@ -425,24 +429,18 @@ namespace WinterOutbreak
         private bool PrepareGpuFootprints(Chunk chunk, float now)
         {
             bool ground = false;
-            float earliestEnd = float.PositiveInfinity;
             foreach (var stamp in chunk.Footprints)
             {
                 if (ReferenceEquals(stamp.RaisedSupport, null))
                 {
                     ground = true;
-                    earliestEnd = Mathf.Min(earliestEnd, stamp.EndTime);
+                    break;
                 }
             }
 
-            // Prints refill on the GPU. Come back only to coarsen cells once ground prints there have gone, batching
-            // nearby expiries.
-            if (ground)
-            {
-                chunk.FootprintRefresh = earliestEnd + GpuCoarsenDelay;
-            }
+            // Prints refill on the GPU, so no rebuild is scheduled once they have gone
 
-            // Raised cap prints refill in the print texture too; they need no refill rebuilds.
+            // Raised cap prints refill in the print texture too
 
             if (!ground)
             {
@@ -453,7 +451,7 @@ namespace WinterOutbreak
             System.Array.Clear(_detailedCells, 0, _detailedCells.Length);
             foreach (var stamp in chunk.Footprints)
             {
-                // Stamps outside the texture window are refined when the window reaches them.
+                // Stamps outside the texture window are refined when the window reaches them
                 if (ReferenceEquals(stamp.RaisedSupport, null) && InPrintWindow(stamp))
                 {
                     VisitStampCells(chunk, stamp, markOnly: true);
@@ -479,8 +477,7 @@ namespace WinterOutbreak
             return VisitStampCells(chunk, stamp, markOnly: false);
         }
 
-        // markOnly: mark every covered cell in _detailedCells. Otherwise report whether any covered cell is missing
-        // from chunk.BuiltDetail.
+        // markOnly: mark every covered cell in _detailedCells
         private bool VisitStampCells(Chunk chunk, SnowImpression stamp, bool markOnly)
         {
             bool[] built = chunk.BuiltDetail;
@@ -522,7 +519,7 @@ namespace WinterOutbreak
             return false;
         }
 
-        // UV3 for vertices added without their own entry: x = displacement limit, y = shading-only limit.
+        // UV3 for vertices added without their own entry: x = displacement limit, y = shading-only limit
         private void PadPrintLimits(Vector4 fill = default)
         {
             while (_printLimits.Count < _vertices.Count)
@@ -584,13 +581,11 @@ namespace WinterOutbreak
                         GrowthSlopeAt(cell.C), GrowthSlopeAt(cell.D), u, v);
                     if (gpu)
                     {
-                        // The shader presses this vertex down by the print texture, up to this limit.
+                        // The shader presses this vertex down by the print texture, up to this limit
                         float weight = InterpolateHeight(available.x, available.y, available.z, available.w, u, v);
                         PadPrintLimits(new Vector4(0f, depth * 0.95f, 0f, 0f));
                         float limit = depth * weight * 0.95f;
-                        // Refined cells do not share vertices. A vertex on an edge or corner takes the latest refine
-                        // time of every refined cell meeting there, so all copies of it ease in together and no gap
-                        // opens between cells refined a moment apart.
+                        // Refined cells do not share vertices
                         float vertexRefined = refinedAt;
                         int sx = x == 0 ? -1 : x == divisions ? 1 : 0;
                         int sz = z == 0 ? -1 : z == divisions ? 1 : 0;
@@ -613,7 +608,7 @@ namespace WinterOutbreak
                     }
                     else if (_prints != null)
                     {
-                        // A transition cell: no prints pressed, but it grows with the snow like its neighbours.
+                        // A transition cell
                         PadPrintLimits(new Vector4(0f, depth * 0.95f, 0f, 0f));
                         _printLimits.Add(new Vector4(0f, depth * 0.95f, 0f, slope));
                     }
@@ -677,7 +672,11 @@ namespace WinterOutbreak
                 ? owner.RefinedAt[index]
                 : float.NegativeInfinity;
         }
-        
+
+        /// <summary>
+        /// Hangs a skirt under one edge of a refined cell where the neighbour beside it is not refined in this chunk
+        /// (coarse cells, or any cell across the chunk border, which is rebuilt on its own).
+        /// </summary>
         private void AddSkirtIfOpen(Chunk chunk, int cellX, int cellZ, int dx, int dz, int start, int stride,
             int from, int count)
         {
@@ -701,11 +700,11 @@ namespace WinterOutbreak
                 point.y -= _printLimits[top].x + SkirtDrop;
                 _vertices.Add(point);
                 _normals.Add(_normals[top]);
-                
+                // The skirt's foot grows with its top, so it stays the same height under the edge
                 _printLimits.Add(new Vector4(0f, 0f, 0f, _printLimits[top].w));
             }
 
-            // Both windings: the gap can be seen from either side.
+            // Both windings: the gap can be seen from either side
             for (int k = from; k < count - 1; k++)
             {
                 int a = start + k * stride, b = start + (k + 1) * stride;
@@ -724,7 +723,7 @@ namespace WinterOutbreak
                 return 0f;
             }
 
-            // Round the transition into the depth limit so the base does not clip flat abruptly.
+            // Round the transition into the depth limit so the base does not clip flat abruptly
             float blend = limit * 0.3f;
             float overlap = Mathf.Max(0f, blend - Mathf.Abs(compression - limit));
             return Mathf.Min(compression, limit) - overlap * overlap / (4f * blend);
@@ -792,11 +791,9 @@ namespace WinterOutbreak
             private readonly bool _prone;
             private readonly bool _corpse;
             private readonly float _blastRadius;
-            
-            // Tiire track
+            // Tyre track
             private readonly float _trackHalfWidth;
-            
-            // Melt
+            // Melt (KindGrenadeMelt or KindFireMelt)
             private readonly int _meltKind;
 
             // Keep these shapes in step with PrintUpdate.shader in the WinterOutbreakShaders project
@@ -913,9 +910,7 @@ namespace WinterOutbreak
                 float remaining = Mathf.Clamp01((EndTime - time) / _duration);
                 if (_trackHalfWidth > 0f)
                 {
-                    // Same groove and tread as the print shader's track stamp. Same groove, wander and chevron tread as
-                    // PrintUpdate.shader (which measures in world coordinates; here local ones, so the tread phase
-                    // differs, which only the CPU path sees).
+                    // Same groove and tread as the print shader's track stamp
                     float q = TrackDistance(point) / _trackHalfWidth;
                     float groove = Mathf.Clamp01(1f - q * q);
                     groove = groove * groove * (3f - 2f * groove);
@@ -970,8 +965,7 @@ namespace WinterOutbreak
                 {
                     halfLength = length >= 0f ? ProneForwardReach : ProneRearReach;
                     halfWidth = Mathf.Lerp(0.46f, 0.62f, Mathf.InverseLerp(-0.55f, 0.55f, length));
-                    
-                    // Ahead of the shoulders the channel narrows toward the arms and weapon.
+                    // Ahead of the shoulders the channel narrows toward the arms and weapon
                     halfWidth = Mathf.Lerp(halfWidth, ProneMuzzleHalfWidth,
                         Mathf.InverseLerp(ProneNarrowStart, ProneNarrowStart + 1f, length));
                 }
@@ -983,8 +977,7 @@ namespace WinterOutbreak
 
                 float along = length / halfLength;
                 float across = width / halfWidth;
-                
-                // Prone keeps its depth further forward (a fourth-power falloff) so the weapon clears the snow.
+                // Prone keeps its depth further forward (a fourth-power falloff) so the weapon clears the snow
                 float alongTerm = _prone && !_corpse && length >= 0f ? along * along * along * along : along * along;
                 float profile = Mathf.Clamp01(1f - alongTerm - across * across);
                 float shape = profile * profile * (3f - 2f * profile);

@@ -13,7 +13,8 @@ namespace WinterOutbreak
         public readonly float StormFactor;
         public readonly float SideSpeed;
 
-        public StormPreset(string name, float snowfall, float fog, float clouds, float wind, float stormFactor, float sideSpeed)
+        public StormPreset(string name, float snowfall, float fog, float clouds,
+            float wind, float stormFactor, float sideSpeed)
         {
             Name = name;
             Snowfall = snowfall;

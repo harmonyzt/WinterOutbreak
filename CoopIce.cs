@@ -7,10 +7,7 @@ using UnityEngine;
 namespace WinterOutbreak
 {
     /// <summary>
-    /// Fika: every player builds the frozen water from the map itself, so with the same settings everyone gets the same
-    /// ice, walls and open areas. The host's settings decide (a headless host's too): they travel with the shared
-    /// weather, and a client waits for them before it freezes anything. Settings that only change how the ice looks on
-    /// one screen and the host-only bot navmesh stay local.
+    /// Fika
     /// </summary>
     public sealed partial class WinterOutbreakPlugin
     {
@@ -31,7 +28,7 @@ namespace WinterOutbreak
         private bool _hostIceKnown;
         private float _hostIceWaitStarted = -1f;
 
-        // The settings the freeze uses: the host's once a Fika client has them, otherwise this game's own.
+        // The settings the freeze uses
         private IceSettings Ice => _hostIce ?? LocalIceSettings();
 
         private IceSettings LocalIceSettings()
@@ -50,7 +47,7 @@ namespace WinterOutbreak
             };
         }
 
-        // One "key=value" per line; the values themselves use ',', ';' and '|' but never a line break.
+        // One "key=value" per line
         private string IceSettingsText()
         {
             IceSettings ice = LocalIceSettings();
@@ -118,8 +115,7 @@ namespace WinterOutbreak
             return bool.TryParse(Read(values, key), out bool value) && value;
         }
 
-        // Called with every weather message from the host. An older host sends no ice settings; then this game's own
-        // are used straight away instead of waiting out the timeout.
+        // Called with every weather message from the host
         private void ReceiveHostIce(string text)
         {
             if (_hostIceKnown)
@@ -131,7 +127,7 @@ namespace WinterOutbreak
             _hostIce = ParseIceSettings(text);
         }
 
-        // A Fika client holds the freeze until the host's settings arrive, for at most the weather timeout.
+        // A Fika client holds the freeze until the host's settings arrive, for at most the weather timeout
         private bool WaitingForHostIce()
         {
             if (!CoopSupport.IsClient || _hostIceKnown)

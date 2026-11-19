@@ -4,8 +4,7 @@ using UnityEngine;
 namespace WinterOutbreak
 {
     /// <summary>
-    /// Used by BarrelDiscovery: walk up from a matched component's transform to the ancestor whose name matches a
-    /// barrel/bonfire pattern, so a light+two-particle-systems fire collapses to one claimed position instead of three.
+    /// Used by BarrelDiscovery
     /// </summary>
     internal static class TransformNameMatch
     {

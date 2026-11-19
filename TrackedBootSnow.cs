@@ -14,7 +14,8 @@ namespace WinterOutbreak
         private static readonly int ColorId = Shader.PropertyToID("_Color");
         private static readonly int TintId = Shader.PropertyToID("_TintColor");
 
-        private readonly int _floorMask = LayersMaskController.HighPolyCollider | LayersMaskController.LowPolyColliderLayerMask | LayersMaskController.TerrainMask;
+        private readonly int _floorMask = LayersMaskController.HighPolyCollider
+            | LayersMaskController.LowPolyColliderLayerMask | LayersMaskController.TerrainMask;
         private readonly List<Print> _prints = new List<Print>();
         private readonly MaterialPropertyBlock _properties = new MaterialPropertyBlock();
         private readonly Texture2D _texture;
@@ -35,18 +36,12 @@ namespace WinterOutbreak
             }
 
             _texture = CreateSoleTexture();
-            _material = new Material(shader)
-            {
-                mainTexture = _texture
-            };
-            _mesh = new Mesh
-            {
-                name = "Winter Outbreak Tracked Boot Snow"
-            };
+            _material = new Material(shader) { mainTexture = _texture };
+            _mesh = new Mesh { name = "Winter Outbreak Tracked Boot Snow" };
             _mesh.vertices = new[]
             {
-                new Vector3(-HalfWidth, 0f, -HalfLength), new Vector3(-HalfWidth, 0f, HalfLength), new Vector3(HalfWidth, 0f, -HalfLength),
-                new Vector3(HalfWidth, 0f, HalfLength)
+                new Vector3(-HalfWidth, 0f, -HalfLength), new Vector3(-HalfWidth, 0f, HalfLength),
+                new Vector3(HalfWidth, 0f, -HalfLength), new Vector3(HalfWidth, 0f, HalfLength)
             };
             _mesh.uv = new[] { Vector2.zero, Vector2.up, Vector2.right, Vector2.one };
             _mesh.colors = new[] { Color.white, Color.white, Color.white, Color.white };
@@ -56,15 +51,17 @@ namespace WinterOutbreak
 
         public void LeavePrint(Vector3 foot, Vector3 forward, float strength, float now)
         {
-            if (_mesh == null || !Physics.Raycast(foot + Vector3.up * 0.38f, Vector3.down, out var floor, 0.90f, _floorMask, QueryTriggerInteraction.Ignore)
-                              || floor.normal.y < 0.65f || floor.point.y > foot.y + 0.18f)
+            if (_mesh == null || !Physics.Raycast(foot + Vector3.up * 0.38f, Vector3.down,
+                    out var floor, 0.90f, _floorMask, QueryTriggerInteraction.Ignore)
+                || floor.normal.y < 0.65f || floor.point.y > foot.y + 0.18f)
             {
                 return;
             }
 
             Vector3 tangent = Vector3.ProjectOnPlane(forward, floor.normal).normalized;
             Vector3 side = Vector3.Cross(floor.normal, tangent);
-            if (tangent.sqrMagnitude < 0.01f || !HasFloorUnder(floor.point + tangent * HalfLength) || !HasFloorUnder(floor.point - tangent * HalfLength)
+            if (tangent.sqrMagnitude < 0.01f || !HasFloorUnder(floor.point + tangent * HalfLength)
+                || !HasFloorUnder(floor.point - tangent * HalfLength)
                 || !HasFloorUnder(floor.point + side * HalfWidth) || !HasFloorUnder(floor.point - side * HalfWidth))
             {
                 return;
@@ -77,7 +74,8 @@ namespace WinterOutbreak
             }
 
             var printObject = new GameObject("Winter Outbreak Indoor Boot Print");
-            printObject.transform.SetPositionAndRotation(floor.point + floor.normal * 0.009f, Quaternion.LookRotation(tangent, floor.normal));
+            printObject.transform.SetPositionAndRotation(
+                floor.point + floor.normal * 0.009f, Quaternion.LookRotation(tangent, floor.normal));
             printObject.AddComponent<MeshFilter>().sharedMesh = _mesh;
 
             var renderer = printObject.AddComponent<MeshRenderer>();
@@ -89,8 +87,9 @@ namespace WinterOutbreak
 
         private bool HasFloorUnder(Vector3 point)
         {
-            // Keep a print on its own stair tread or floor plane.
-            return Physics.Raycast(point + Vector3.up * 0.06f, Vector3.down, out var floor, 0.12f, _floorMask, QueryTriggerInteraction.Ignore) && floor.normal.y >= 0.65f;
+            // Keep a print on its own stair tread or floor plane
+            return Physics.Raycast(point + Vector3.up * 0.06f, Vector3.down, out var floor, 0.12f,
+                _floorMask, QueryTriggerInteraction.Ignore) && floor.normal.y >= 0.65f;
         }
 
         public void Update(float now)
@@ -137,7 +136,8 @@ namespace WinterOutbreak
                     float across = ((x + 0.5f) / width * 2f - 1f) / soleWidth;
                     float edge = Mathf.Clamp01((1f - across * across - along * along) * 4.5f);
                     float grain = Mathf.Lerp(0.30f, 0.95f, Mathf.PerlinNoise(x * 0.43f, z * 0.33f));
-                    float tread = Mathf.Lerp(0.35f, 1f, Mathf.InverseLerp(0.2f, 0.5f, Mathf.Repeat((z + Mathf.Abs(across) * 2f) / 7f, 1f)));
+                    float tread = Mathf.Lerp(0.35f, 1f, Mathf.InverseLerp(0.2f, 0.5f,
+                        Mathf.Repeat((z + Mathf.Abs(across) * 2f) / 7f, 1f)));
                     float alpha = Mathf.SmoothStep(0f, 1f, edge) * grain * tread;
                     pixels[z * width + x] = new Color32(255, 255, 255, (byte)(alpha * 255f));
                 }

@@ -6,13 +6,12 @@ namespace WinterOutbreak.Fika
     internal enum WinterPacketKind : byte
     {
         /// <summary>
-        /// Client to host: send me the weather and the bonfires. Text is the protocol version.
+        /// Client to host: send me the weather and the bonfires.
         /// </summary>
         Ready,
 
         /// <summary>
-        /// Host to clients. Text is the preset; Depth, DepthRate and MaxDepth the snow timeline; Ice the host's frozen
-        /// water settings.
+        /// Host to clients.
         /// </summary>
         Weather,
 

@@ -3,7 +3,8 @@ using UnityEngine;
 namespace WinterOutbreak
 {
     /// <summary>
-    /// One wind state shared by ground drift, plumes, so every effect moves the same way at the same moment.
+    /// One wind state shared by ground drift, plumes, haze and the fog pulse, so every blowing-snow effect moves the
+    /// same way at the same moment.
     /// </summary>
     internal sealed class StormWind
     {
@@ -30,12 +31,12 @@ namespace WinterOutbreak
         private float _frontDuration;
 
         /// <summary>
-        /// vector the storm blows toward
+        /// Unit horizontal vector the storm blows toward, matching the native flakes.
         /// </summary>
         public Vector3 Prevailing { get; private set; } = Vector3.right;
 
         /// <summary>
-        /// Current direction, veering a few degrees around the prevailing one
+        /// Current direction, veering a few degrees around the prevailing one.
         /// </summary>
         public Vector3 Direction { get; private set; } = Vector3.right;
 
@@ -95,7 +96,7 @@ namespace WinterOutbreak
             }
         }
 
-        public void Update(Vector2 weatherWind, float severity, float gustScale, float deltaTime)
+        public void Update(Vector2 weatherWind, float severity, float gustRate, float gustScale, float deltaTime)
         {
             deltaTime = Mathf.Clamp(deltaTime, 0f, 0.1f);
             _clock += deltaTime;
@@ -108,13 +109,13 @@ namespace WinterOutbreak
                 Prevailing = Vector3.Slerp(Prevailing, prevailing, Mathf.Clamp01(deltaTime * 0.5f)).normalized;
             }
 
-            UpdateGust(gustScale, deltaTime);
+            UpdateGust(gustRate, gustScale, deltaTime);
 
             float flutter = Mathf.PerlinNoise(_clock * 0.31f, _seedA) - 0.5f;
             float slowFlutter = Mathf.PerlinNoise(_clock * 0.07f, _seedB) - 0.5f;
             Turbulence = Mathf.Clamp01(0.25f + Severity * 0.35f + Gust * 0.5f + flutter * 0.4f);
 
-            // Veer up to about 14 degrees, more while gusting, so motion is never perfectly straight.
+            // Veer up to about 14 degrees, more while gusting, so motion is never perfectly straight
             float veer = (slowFlutter * 0.9f + flutter * 0.5f * Turbulence) * 0.25f;
             Direction = Quaternion.AngleAxis(veer * Mathf.Rad2Deg, Vector3.up) * Prevailing;
             Side = Vector3.Cross(Vector3.up, Direction).normalized;
@@ -142,7 +143,7 @@ namespace WinterOutbreak
             }
         }
 
-        private void UpdateGust(float gustScale, float deltaTime)
+        private void UpdateGust(float gustRate, float gustScale, float deltaTime)
         {
             if (_clock >= _nextGust && Severity > 0.05f)
             {
@@ -153,7 +154,7 @@ namespace WinterOutbreak
                 _gustHoldEnd = _gustPeak + (_gustIsBig ? Range(2.5f, 5f) : Range(0.6f, 2.5f));
                 _gustEnd = _gustHoldEnd + Range(2.5f, 6f);
 
-                float calm = Mathf.Lerp(28f, 7f, Severity);
+                float calm = Mathf.Lerp(28f, 7f, Severity) / Mathf.Max(gustRate, 0.1f);
                 _nextGust = _gustEnd + calm * Range(0.4f, 1.3f);
                 BigGustBegan = _gustIsBig && _gustAmplitude > 0.05f;
             }
@@ -164,8 +165,11 @@ namespace WinterOutbreak
                 return;
             }
 
-            float envelope = _clock < _gustPeak ? Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(_gustStart, _gustPeak, _clock)) :
-                _clock < _gustHoldEnd ? 1f - 0.15f * Mathf.PerlinNoise(_clock * 1.7f, _seedC) : Mathf.SmoothStep(1f, 0f, Mathf.InverseLerp(_gustHoldEnd, _gustEnd, _clock));
+            float envelope = _clock < _gustPeak
+                ? Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(_gustStart, _gustPeak, _clock))
+                : _clock < _gustHoldEnd
+                    ? 1f - 0.15f * Mathf.PerlinNoise(_clock * 1.7f, _seedC)
+                    : Mathf.SmoothStep(1f, 0f, Mathf.InverseLerp(_gustHoldEnd, _gustEnd, _clock));
             Gust = envelope * _gustAmplitude;
         }
 
@@ -211,15 +215,14 @@ namespace WinterOutbreak
         }
 
         /// <summary>
-        /// The gust as felt at <paramref name="position"/>. A gust enters at the upwind edge of the area around
-        /// <paramref name="center"/> and travels downwind at the snow's speed, so upwind ground gusts first and the
-        /// player feels it a few seconds later. A little noise in the arrival time breaks the front into patches.
+        /// The gust as felt at <paramref name="position"/>.
         /// </summary>
         public float GustAt(Vector3 position, Vector3 center)
         {
             float along = Vector3.Dot(position - center, Prevailing) + UpwindReach;
             float jitter = (Mathf.PerlinNoise(position.x * 0.035f + _seedB, position.z * 0.035f + _seedC) - 0.5f) * 3f;
-            float delay = Mathf.Clamp((along / Mathf.Max(2f, SnowSpeed)) + jitter, 0f, (_gustHistory.Length - 2) * HistoryStep);
+            float delay = Mathf.Clamp((along / Mathf.Max(2f, SnowSpeed)) + jitter, 0f,
+                (_gustHistory.Length - 2) * HistoryStep);
             int steps = Mathf.RoundToInt(delay / HistoryStep);
             int index = ((_historyHead - steps) % _gustHistory.Length + _gustHistory.Length) % _gustHistory.Length;
             return _gustHistory[index];

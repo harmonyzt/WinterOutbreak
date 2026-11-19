@@ -1,3 +1,5 @@
+using System.IO;
+using System.Text;
 using UnityEngine;
 
 namespace WinterOutbreak
@@ -11,13 +13,8 @@ namespace WinterOutbreak
         private const byte EdgeEastResolved = 1, EdgeNorthResolved = 2;
         private const int EdgeModeHeight = 1, EdgeModeCover = 2;
 
-        internal long EdgeSearches;
-        internal long EdgeFound;
-        internal long EdgeKept;
-        internal long EdgeSearchTicks;
-        internal long EdgeSearchCalls;
-
-        // Where the ground changes between cell (x, z) and its neighbour (x + dx, z + dz)
+        // Where the ground changes between cell (x, z) and its neighbour (x + dx, z + dz), as a fraction of the way
+        // from this cell's centre to the neighbour's
         private float GetEdgeCrossing(int x, int z, int dx, int dz)
         {
             if (dx < 0 || dz < 0)
@@ -40,16 +37,13 @@ namespace WinterOutbreak
                 return dx > 0 ? cached.EdgeEast : cached.EdgeNorth;
             }
 
-            // An edge beside a cell that is not sampled yet is not cached: it is searched once both sides exist.
+            // An edge beside a cell that is not sampled yet is not cached: it is searched once both sides exist
             if (!cached.Sampled || !GetColumn(x + dx, z + dz).Sampled)
             {
                 return float.NaN;
             }
 
-            long searchStarted = System.Diagnostics.Stopwatch.GetTimestamp();
             float t = SearchEdge(x, z, x + dx, z + dz);
-            EdgeSearchTicks += System.Diagnostics.Stopwatch.GetTimestamp() - searchStarted;
-            EdgeSearchCalls++;
             ref Column column = ref owner.Columns[index];
             if (dx > 0)
             {
@@ -107,25 +101,21 @@ namespace WinterOutbreak
             }
             else if (a.Sheltered && b.Sheltered)
             {
-                // Doorway drift ends where the smooth drift field falls below the minimum depth. Interpolate that point
-                // between the two cells instead of ending the drift on the cell border.
+                // Doorway drift ends where the smooth drift field falls below the minimum depth
                 float da = GetDriftField(ax, az), db = GetDriftField(bx, bz);
                 if ((da >= MinimumDrift) == (db >= MinimumDrift) || Mathf.Approximately(da, db))
                 {
                     return float.NaN;
                 }
 
-                EdgeSearches++;
-                EdgeFound++;
                 return Mathf.Clamp((da - MinimumDrift) / (da - db), 0.02f, 0.98f);
             }
             else
             {
-                // No physical difference: the boundary comes from shaping, so it stays on the grid.
+                // No physical difference
                 return float.NaN;
             }
 
-            EdgeSearches++;
             Vector3 pa = GroundPoint(ax, az, 0f);
             Vector3 pb = GroundPoint(bx, bz, 0f);
             float lo = 0f, hi = 1f;
@@ -135,7 +125,6 @@ namespace WinterOutbreak
                 int side = ClassifyEdgePoint(Vector3.Lerp(pa, pb, mid), mode, sa, sb);
                 if (side == 0)
                 {
-                    EdgeKept++;
                     return float.NaN;
                 }
 
@@ -151,17 +140,12 @@ namespace WinterOutbreak
 
             if (lo == 0f || hi == 1f)
             {
-                EdgeKept++;
                 return float.NaN;
             }
-
-            EdgeFound++;
             return (lo + hi) * 0.5f;
         }
 
-        // 1 when the point behaves like cell A, 2 like cell B, 0 when it matches neither.
-        //
-        // Sampling finds where the grid's own decision changes.
+        // 1 when the point behaves like cell A, 2 like cell B, 0 when it matches neither
         private int ClassifyEdgePoint(Vector3 point, int mode, EdgeSide sa, EdgeSide sb)
         {
             Column sample = SampleColumnCore(point);
@@ -204,7 +188,7 @@ namespace WinterOutbreak
         }
 
         // Sideways offset for the vertex at mesh corner (cx, cz) used by the cells in groupMask, where bit 0 is cell
-        // (cx-1, cz-1), bit 1 (cx, cz-1), bit 2 (cx-1, cz) and bit 3 (cx, cz).
+        // (cx-1, cz-1), bit 1 (cx, cz-1), bit 2 (cx-1, cz) and bit 3 (cx, cz)
         private Vector2 EdgeShift(int cx, int cz, int groupMask)
         {
             if (groupMask == 0 || groupMask == 15)
@@ -268,7 +252,7 @@ namespace WinterOutbreak
                 return;
             }
 
-            // Cell units: a cell's centre is at index + 0.5.
+            // Cell units: a cell's centre is at index + 0.5
             sum += new Vector2(fromX + 0.5f + t * dx, fromZ + 0.5f + t * dz);
             count++;
         }

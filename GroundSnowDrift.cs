@@ -4,7 +4,7 @@ using UnityEngine.Rendering;
 namespace WinterOutbreak
 {
     /// <summary>
-    /// Loose snow streaming along snow covered ground
+    /// Loose snow streaming along snow-covered ground
     /// </summary>
     internal sealed class GroundSnowDrift
     {
@@ -47,7 +47,7 @@ namespace WinterOutbreak
             var shape = _particles.shape;
             shape.enabled = false;
 
-            // Irregular sideways wander keeps streaks from moving in perfect parallel lines.
+            // Irregular sideways wander keeps streaks from moving in perfect parallel lines
             var noise = _particles.noise;
             noise.enabled = true;
             noise.separateAxes = true;
@@ -87,7 +87,7 @@ namespace WinterOutbreak
         }
 
         /// <summary>
-        /// Per-frame upkeep: turbulence and wall steering. Emission is driven by <see cref="SnowSources"/>.
+        /// Per-frame upkeep: turbulence and wall steering.
         /// </summary>
         public void Update(StormWind wind)
         {
@@ -96,7 +96,7 @@ namespace WinterOutbreak
                 return;
             }
 
-            // Steer every other frame, twice as many particles, to halve the particle copies.
+            // Steer every other frame, twice as many particles, to halve the particle copies
             if ((Time.frameCount & 1) == 0)
             {
                 _steering.Steer(_particles, 140, 0.4f, 0.08f);
@@ -128,8 +128,7 @@ namespace WinterOutbreak
         }
 
         /// <summary>
-        /// One translucent sheet of moving snow. Sizes follow a long tail (about 1 to 8 m) so the drift reads as moving
-        /// snow cover, not as many small particles.
+        /// One translucent sheet of moving snow.
         /// </summary>
         public void EmitSheet(SnowSource source, StormWind wind, float gust, float intensity, Color light,
             float spread = 1f)
@@ -141,7 +140,7 @@ namespace WinterOutbreak
 
             Vector3 forward = source.Flow;
             Vector3 side = Vector3.Cross(Vector3.up, forward);
-            // Far sheets are larger, live longer and are a little denser so they read at a distance.
+            // Far sheets are larger, live longer and are a little denser so they read at a distance
             float scale = spread > 1f ? Mathf.Sqrt(spread) : 1f;
             float size = Mathf.Exp(wind.Range(0f, 2.1f)) * (1f + gust * 0.5f) * scale;
             Vector3 offset = (forward * wind.Range(-2.5f, 2.5f) + side * wind.Range(-2.5f, 2.5f)) * spread;
@@ -184,8 +183,7 @@ namespace WinterOutbreak
 
         /// <summary>
         /// Fades a particle where it meets geometry (the legacy particle shader's soft-particle variant reads the
-        /// camera depth texture), so large sheets do not cut hard lines into the ground or walls. Without the variant
-        /// this does nothing.
+        /// camera depth texture), so large sheets do not cut hard lines into the ground or walls.
         /// </summary>
         internal static void EnableSoftParticles(Material material, float invFade)
         {

@@ -60,7 +60,7 @@ namespace WinterOutbreak
             var shape = particles.shape;
             shape.enabled = false;
 
-            // Rise quickly, then lose lift and settle as the snow disperses.
+            // Rise quickly, then lose lift and settle as the snow disperses
             var velocity = particles.velocityOverLifetime;
             velocity.enabled = true;
             velocity.space = ParticleSystemSimulationSpace.World;
@@ -71,7 +71,7 @@ namespace WinterOutbreak
             velocity.z = new ParticleSystem.MinMaxCurve(1f, flat);
             if (orbit)
             {
-                // Spin up, hold, then unwind and drift outward, so pieces never orbit in place forever.
+                // Spin up, hold, then unwind and drift outward, so pieces never orbit in place forever
                 var spin = new AnimationCurve(new Keyframe(0f, 0.2f), new Keyframe(0.3f, 1f),
                     new Keyframe(0.7f, 0.75f), new Keyframe(1f, 0.05f));
                 var spread = new AnimationCurve(new Keyframe(0f, 0f), new Keyframe(0.6f, 0.2f), new Keyframe(1f, 1f));
@@ -107,7 +107,7 @@ namespace WinterOutbreak
             color.color = new ParticleSystem.MinMaxGradient(fade);
 
             // Low-quality world collision stops puffs at walls and slopes so they spread along the surface and fade
-            // instead of passing through.
+            // instead of passing through
             var collision = particles.collision;
             collision.enabled = !orbit;
             collision.type = ParticleSystemCollisionType.World;
@@ -143,7 +143,7 @@ namespace WinterOutbreak
                 return;
             }
 
-            // Steer every third frame, three times as many particles, to cut particle copies.
+            // Steer every third frame, three times as many particles, to cut particle copies
             if (Time.frameCount % 3 == 0)
             {
                 _puffSteering.Steer(_puffs, 120, 0.7f, 0.35f);
@@ -155,8 +155,7 @@ namespace WinterOutbreak
         }
 
         /// <summary>
-        /// One puff of lifted snow from a source. A busy source emits these one after another, so a plume grows out of
-        /// the ground instead of appearing whole.
+        /// One puff of lifted snow from a source.
         /// </summary>
         public void EmitPuff(SnowSource source, StormWind wind, float gust, float intensity, Color light,
             float spread = 1f)
@@ -178,7 +177,7 @@ namespace WinterOutbreak
                 + Vector3.up * wind.Range(0.3f, 1.4f) * lift
                 + wind.Side * wind.Range(-0.7f, 0.7f) * wind.Turbulence;
 
-            // Long-tailed sizes: mostly 1.5-5 m, with large billows up to about 12 m.
+            // Long-tailed sizes: mostly 1.5-5 m, with large billows up to about 12 m
             float size = Mathf.Exp(wind.Range(0.4f, large ? 2.5f : 1.6f)) * (1f + rise * 0.6f) * scale;
             float alpha = wind.Range(0.06f, 0.17f) * (0.65f + s * 0.6f) / Mathf.Sqrt(Mathf.Max(1f, size * 0.35f));
             Emit(_puffs, position + Vector3.up * size * 0.15f, velocity, wind.Range(3f, 6.5f) * (large ? 1.3f : 1f) * scale,
@@ -206,8 +205,7 @@ namespace WinterOutbreak
         }
 
         /// <summary>
-        /// Starts a small snow devil. Its pieces are released over about 2.5 s and each one spins up, holds, then
-        /// unwinds outward, so the vortex grows and dies instead of flaring up all at once.
+        /// Starts a small snow devil.
         /// </summary>
         public void StartVortex(Vector3 ground, StormWind wind, float intensity, Color light)
         {
@@ -245,8 +243,7 @@ namespace WinterOutbreak
         }
 
         /// <summary>
-        /// A wall of dense snow that starts at an upwind source during a large gust and travels downwind. It sweeps
-        /// over the player only when its path crosses the player.
+        /// A wall of dense snow that starts at an upwind source during a large gust and travels downwind.
         /// </summary>
         public void EmitGustFront(Vector3 origin, Vector3 center, StormWind wind, WindFlow flow, float intensity,
             Color light)

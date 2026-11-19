@@ -61,7 +61,8 @@ namespace WinterOutbreak
             private static void Postfix(AIData __instance, TreeInteractive treeInteractive, Collider triggerCollider)
             {
                 var plugin = _plugin;
-                if (plugin?._treeSnow != null && plugin._raid != null && ReferenceEquals(__instance.Player, plugin._raid.MainPlayer))
+                if (plugin?._treeSnow != null && plugin._raid != null
+                    && ReferenceEquals(__instance.Player, plugin._raid.MainPlayer))
                 {
                     plugin._treeSnow.NoteContact(treeInteractive, triggerCollider);
                 }
@@ -109,10 +110,7 @@ namespace WinterOutbreak
             }
 
             _texture = GroundSnowDrift.CreateWispTexture();
-            _particleMaterial = new Material(shader)
-            {
-                mainTexture = _texture
-            };
+            _particleMaterial = new Material(shader) { mainTexture = _texture };
             var emitter = new GameObject("Winter Outbreak Branch Snow");
             emitter.SetActive(false);
             _particles = emitter.AddComponent<ParticleSystem>();
@@ -133,7 +131,8 @@ namespace WinterOutbreak
             color.enabled = true;
             var fade = new Gradient();
             fade.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) },
-                new[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(0.75f, 0.55f), new GradientAlphaKey(0f, 1f) });
+                new[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(0.75f, 0.55f),
+                    new GradientAlphaKey(0f, 1f) });
             color.color = new ParticleSystem.MinMaxGradient(fade);
 
             var renderer = emitter.GetComponent<ParticleSystemRenderer>();
@@ -163,7 +162,8 @@ namespace WinterOutbreak
         public void Update(Vector3 position, Vector3 velocity, float refillSeconds, int showerParticles)
         {
             float now = Time.time;
-            if (_contact != null && _contactVolume != null && now - _lastContact <= TouchTime && velocity.x * velocity.x + velocity.z * velocity.z > 0.25f * 0.25f)
+            if (_contact != null && _contactVolume != null && now - _lastContact <= TouchTime
+                && velocity.x * velocity.x + velocity.z * velocity.z > 0.25f * 0.25f)
             {
                 ShakeTree(_contact, _contactVolume, position, now, refillSeconds, showerParticles);
             }
@@ -228,7 +228,8 @@ namespace WinterOutbreak
                 return;
             }
 
-            int count = Physics.OverlapSphereNonAlloc(position, ScanRadius, _nearby, _foliageMask, QueryTriggerInteraction.Collide);
+            int count = Physics.OverlapSphereNonAlloc(position, ScanRadius, _nearby, _foliageMask,
+                QueryTriggerInteraction.Collide);
             TreeInteractive nearestTree = null;
             Collider nearestVolume = null;
             float nearestDistance = float.PositiveInfinity;
@@ -285,20 +286,24 @@ namespace WinterOutbreak
                 float z = bounds.center.z + (float)(random.NextDouble() * 2d - 1d) * Mathf.Min(2.6f, bounds.extents.z);
                 var start = new Vector3(x, bounds.max.y + 0.75f, z);
 
-                if (!Physics.Raycast(start, Vector3.down, out var hit, bounds.size.y + 1f, _supportMask, QueryTriggerInteraction.Ignore) || hit.normal.y < 0.30f
-                    || hit.point.y < bounds.min.y + 0.45f || hit.collider.GetComponentInParent<TreeInteractive>() != tree)
+                if (!Physics.Raycast(start, Vector3.down, out var hit, bounds.size.y + 1f, _supportMask,
+                    QueryTriggerInteraction.Ignore)
+                    || hit.normal.y < 0.30f || hit.point.y < bounds.min.y + 0.45f
+                    || hit.collider.GetComponentInParent<TreeInteractive>() != tree)
                 {
                     continue;
                 }
 
                 Vector3 anchor = hit.point + hit.normal * 0.016f;
-                if (plant.Anchors.Exists(point => (tree.transform.TransformPoint(point) - anchor).sqrMagnitude < 0.25f * 0.25f))
+                if (plant.Anchors.Exists(point => (tree.transform.TransformPoint(point) - anchor).sqrMagnitude
+                    < 0.25f * 0.25f))
                 {
                     continue;
                 }
 
                 plant.Anchors.Add(tree.transform.InverseTransformPoint(anchor));
-                AddSnowPatch(vertices, triangles, tree.transform, anchor, hit.normal, Mathf.Lerp(0.055f, 0.13f, (float)random.NextDouble()));
+                AddSnowPatch(vertices, triangles, tree.transform, anchor, hit.normal,
+                    Mathf.Lerp(0.055f, 0.13f, (float)random.NextDouble()));
             }
 
             if (vertices.Count == 0)
@@ -306,10 +311,7 @@ namespace WinterOutbreak
                 return plant;
             }
 
-            plant.Mesh = new Mesh
-            {
-                name = "Winter Outbreak Branch Snow Patches"
-            };
+            plant.Mesh = new Mesh { name = "Winter Outbreak Branch Snow Patches" };
             plant.Mesh.SetVertices(vertices);
             plant.Mesh.SetTriangles(triangles, 0);
             plant.Mesh.RecalculateNormals();
@@ -323,7 +325,8 @@ namespace WinterOutbreak
             return plant;
         }
 
-        private static void AddSnowPatch(List<Vector3> vertices, List<int> triangles, Transform tree, Vector3 anchor, Vector3 normal, float radius)
+        private static void AddSnowPatch(List<Vector3> vertices, List<int> triangles, Transform tree,
+            Vector3 anchor, Vector3 normal, float radius)
         {
             const int sides = 8;
             Vector3 tangent = Vector3.Cross(normal, Vector3.forward).normalized;
@@ -334,7 +337,8 @@ namespace WinterOutbreak
             for (int i = 0; i < sides; i++)
             {
                 float angle = i * (Mathf.PI * 2f / sides);
-                Vector3 offset = tangent * (Mathf.Cos(angle) * radius) + across * (Mathf.Sin(angle) * radius * 0.7f);
+                Vector3 offset = tangent * (Mathf.Cos(angle) * radius)
+                    + across * (Mathf.Sin(angle) * radius * 0.7f);
                 vertices.Add(tree.InverseTransformPoint(anchor + offset - normal * 0.022f));
                 triangles.Add(center);
                 triangles.Add(center + 1 + (i + 1) % sides);
@@ -347,7 +351,8 @@ namespace WinterOutbreak
             return !_refillAt.TryGetValue(id, out float readyAt) || now >= readyAt;
         }
 
-        private void ShakeTree(TreeInteractive tree, Collider volume, Vector3 position, float now, float refillSeconds, int showerParticles)
+        private void ShakeTree(TreeInteractive tree, Collider volume, Vector3 position, float now,
+            float refillSeconds, int showerParticles)
         {
             int id = tree.GetInstanceID();
             if (!IsCoated(id) || !IsReady(id, now))

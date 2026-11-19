@@ -16,7 +16,7 @@ namespace WinterOutbreak
         }
 
         /// <summary>
-        /// Makes sure a started effect and its icon reach the inventory list as well
+        /// The HUD lists effects from start events, while the inventory body views rebuild from the controller.
         /// </summary>
         [HarmonyPatch(typeof(EffectsPanel), nameof(EffectsPanel.UpdateEffects))]
         private static class InventoryEffectsPatch

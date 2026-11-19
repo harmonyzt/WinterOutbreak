@@ -4,7 +4,7 @@
     <LangVersion>latest</LangVersion>
     <AssemblyName>WinterOutbreak</AssemblyName>
     <RootNamespace>WinterOutbreak</RootNamespace>
-    <Version>1.0.0</Version>
+    <Version>1.0.1</Version>
     <GameRoot Condition="'$(GameRoot)' == ''">D:\401SPT</GameRoot>
     <Managed>$(GameRoot)\EscapeFromTarkov_Data\Managed</Managed>
   </PropertyGroup>
@@ -37,7 +37,6 @@
     <Reference Include="UnityEngine.UI" HintPath="$(Managed)\UnityEngine.UI.dll" Private="false" />
     <Reference Include="Sirenix.Serialization" HintPath="$(Managed)\Sirenix.Serialization.dll" Private="false" />
     <ProjectReference Include="..\EFTEffectManager-main\EFTEffectManager.csproj" />
-    <None Update="breathsmoke.bundle" Link="Resources\breathsmoke.bundle" CopyToOutputDirectory="PreserveNewest" />
     <None Update="Resources\**\*" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

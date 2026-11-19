@@ -15,33 +15,40 @@ namespace WinterOutbreak
 
         private void BindStormVisionSettings()
         {
-            _stormVisionEnabled = Config.Bind("AI Vision", "Enabled", true, "Storms limit how far and how quickly bots can see.");
+            const string oldSection = "AI Vision";
+            var sightRange = new AcceptableValueRange<float>(10f, 300f);
+            var speedRange = new AcceptableValueRange<float>(0.1f, 1f);
 
-            _snowstormSightDistance = Config.Bind("AI Vision", "Snowstorm Sight Distance (m)", 100f,
-                new ConfigDescription("How far bots can see through a Snowstorm.", new AcceptableValueRange<float>(10f, 300f)));
+            _stormVisionEnabled = BindSetting(AiVisionSection, "Enabled", true,
+                "Storms limit how far and how quickly bots can see.", 1, oldSection: oldSection);
 
-            _blizzardSightDistance = Config.Bind("AI Vision", "Blizzard Sight Distance (m)", 55f,
-                new ConfigDescription("How far bots can see through a Blizzard.", new AcceptableValueRange<float>(10f, 300f)));
+            _snowstormSightDistance = BindSetting(AiVisionSection, "Snowstorm Sight Distance (m)", 100f,
+                "How far bots can see through a Snowstorm.", 2, true, sightRange, oldSection);
 
-            _snowstormSightSpeed = Config.Bind("AI Vision", "Snowstorm Spotting Speed", 0.8f,
-                new ConfigDescription("How quickly bots spot you in a Snowstorm. 1 is normal speed. With SAIN, SAIN's own weather rules decide this.",
-                    new AcceptableValueRange<float>(0.1f, 1f)));
+            _blizzardSightDistance = BindSetting(AiVisionSection, "Blizzard Sight Distance (m)", 55f,
+                "How far bots can see through a Blizzard.", 3, true, sightRange, oldSection);
 
-            _blizzardSightSpeed = Config.Bind("AI Vision", "Blizzard Spotting Speed", 0.6f,
-                new ConfigDescription("How quickly bots spot you in a Blizzard. 1 is normal speed. With SAIN, SAIN's own weather rules decide this.",
-                    new AcceptableValueRange<float>(0.1f, 1f)));
+            _snowstormSightSpeed = BindSetting(AiVisionSection, "Snowstorm Spotting Speed", 0.8f,
+                "How quickly bots spot you in a Snowstorm. 1 is normal speed. With SAIN, SAIN's own weather rules decide this.", 4,
+                true, speedRange, oldSection);
+
+            _blizzardSightSpeed = BindSetting(AiVisionSection, "Blizzard Spotting Speed", 0.6f,
+                "How quickly bots spot you in a Blizzard. 1 is normal speed. With SAIN, SAIN's own weather rules decide this.", 5,
+                true, speedRange, oldSection);
         }
 
         private const string SainId = "me.sol.sain";
         private static bool? _sainLoaded;
 
-        private static bool SainLoaded => _sainLoaded ??= BepInEx.Bootstrap.Chainloader.PluginInfos.ContainsKey(SainId);
+        private static bool SainLoaded =>
+            _sainLoaded ??= BepInEx.Bootstrap.Chainloader.PluginInfos.ContainsKey(SainId);
 
         [HarmonyPatch(typeof(EnemyPartVision), nameof(EnemyPartVision.CheckLineOfSight))]
         private static class StormVisionPatch
         {
             [HarmonyPriority(Priority.Low)]
-            private static void Prefix(BotOwner owner, EnemyPart part, ref float addSensorDistance, ref float visibilityChangeSpeedK)
+            private static void Prefix(BotOwner owner, EnemyPart part, ref float addSensorDistance,
+                ref float visibilityChangeSpeedK)
             {
                 var plugin = _plugin;
                 if (plugin == null || plugin._weather == null || !plugin._stormVisionEnabled.Value)
@@ -59,12 +66,10 @@ namespace WinterOutbreak
                 float distance = blizzard ? plugin._blizzardSightDistance.Value : plugin._snowstormSightDistance.Value;
                 float speed = blizzard ? plugin._blizzardSightSpeed.Value : plugin._snowstormSightSpeed.Value;
 
-                // The native check adds this offset to VisibleDist before comparing distance. A ceiling, so it never
-                // stacks with SAIN's own weather distance: whichever is shorter wins.
+                // The native check adds this offset to VisibleDist before comparing distance
                 addSensorDistance = Mathf.Min(addSensorDistance, distance - owner.LookSensor.VisibleDist);
 
-                // SAIN slows spotting in bad weather by itself, and it reads this mod's storm through the weather
-                // curve. Multiplying here as well would slow bots twice, so with SAIN its own rule decides the speed.
+                // SAIN slows spotting in bad weather by itself, and it reads this mod's storm through the weather curve
                 if (!SainLoaded)
                 {
                     visibilityChangeSpeedK *= speed;

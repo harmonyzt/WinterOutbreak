@@ -4,7 +4,7 @@ using UnityEngine;
 namespace WinterOutbreak
 {
     /// <summary>
-    /// Approximate airflow around buildings
+    /// Approximate airflow around buildings.
     /// </summary>
     internal sealed class WindFlow
     {
@@ -29,7 +29,7 @@ namespace WinterOutbreak
         {
             _mask = mask;
         }
-        
+
         public void Sample(Vector3 ground, StormWind wind, out Vector3 direction, out float speed, out float shelter)
         {
             long key = ((long)Mathf.FloorToInt(ground.x / Cell) << 32) ^ (uint)Mathf.FloorToInt(ground.z / Cell);
@@ -47,10 +47,9 @@ namespace WinterOutbreak
                 _cache[key] = entry;
             }
 
-            // Keep the current veer on top of the cached, geometry-aware direction.
+            // Keep the current veer on top of the cached, geometry-aware direction
             float veer = Vector3.SignedAngle(wind.Prevailing, wind.Direction, Vector3.up);
             direction = Quaternion.AngleAxis(veer, Vector3.up) * entry.Direction;
-            
             speed = entry.Speed;
             shelter = entry.Shelter;
         }
@@ -70,7 +69,7 @@ namespace WinterOutbreak
 
             if (!Physics.Raycast(origin, prevailing, out var ahead, Lookahead, _mask, triggers) || ahead.normal.y > 0.6f)
             {
-                // Open ahead. Walls close on both sides squeeze the flow and speed it up.
+                // Open ahead
                 Vector3 side = Vector3.Cross(Vector3.up, prevailing);
                 bool left = Physics.Raycast(origin, -side, 6f, _mask, triggers);
                 bool right = Physics.Raycast(origin, side, 6f, _mask, triggers);
@@ -88,7 +87,7 @@ namespace WinterOutbreak
                     ? hit.distance
                     : Lookahead;
 
-                // Prefer smaller turns when the room is similar.
+                // Prefer smaller turns when the room is similar
                 if (clear > best + 1.5f)
                 {
                     best = clear;
@@ -104,7 +103,7 @@ namespace WinterOutbreak
 
             if (best < 3f)
             {
-                // Boxed in: slide along the wall in front.
+                // Boxed in: slide along the wall in front
                 Vector3 slide = Vector3.ProjectOnPlane(prevailing, ahead.normal);
                 slide.y = 0f;
                 entry.Direction = slide.sqrMagnitude > 0.01f ? slide.normalized : prevailing;
@@ -122,7 +121,11 @@ namespace WinterOutbreak
             _cache.Clear();
         }
     }
-    
+
+    /// <summary>
+    /// Checks a few particles per frame for walls ahead and turns them to slide along the surface, so moving snow flows
+    /// around buildings instead of through them.
+    /// </summary>
     internal sealed class ParticleSteering
     {
         private readonly int _mask;
@@ -133,7 +136,7 @@ namespace WinterOutbreak
         {
             _mask = mask;
         }
-        
+
         public void Steer(ParticleSystem system, int checks, float lookahead, float rise)
         {
             if (system == null || system.particleCount == 0)
@@ -174,7 +177,7 @@ namespace WinterOutbreak
                 Vector3 turned;
                 if (hit.normal.y > 0.6f)
                 {
-                    // Ground or a roof ahead, skim over it
+                    // Ground or a roof ahead: skim over it
                     turned = velocity;
                     turned.y = Mathf.Max(turned.y, 0.05f * speed);
                 }
@@ -183,7 +186,7 @@ namespace WinterOutbreak
                     turned = Vector3.ProjectOnPlane(velocity, hit.normal);
                     if (turned.sqrMagnitude < 0.04f * speed * speed)
                     {
-                        // pick a side along the wall
+                        // Head-on: pick a side along the wall
                         turned = Vector3.Cross(hit.normal, Vector3.up) * (index % 2 == 0 ? 1f : -1f) * speed;
                     }
 

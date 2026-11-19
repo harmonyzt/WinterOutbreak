@@ -8,22 +8,17 @@ using WaterSSR;
 
 namespace WinterOutbreak
 {
-    // The sea must not freeze over: a band of ice follows the coast, its width wandering along the shore, and ends in
-    // open water along a ragged line with a few loose floes beyond it. The sea's own water stays drawn; the ice mesh
-    // lies a few centimetres above it and covers it where frozen. BSG's walls along the coast stay, so most of the band
-    // is only to look at.
+    // The sea must not freeze over
     public sealed partial class WinterOutbreakPlugin
     {
-        // Path parts of each map's sea quads.
+        // Path parts of each map's sea quads
         private static readonly Dictionary<string, string> MapSeas = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
             { "shoreline", "Shoreline_Sea_Water_" },
             { "lighthouse", "WATER/sea/" }
         };
 
-        // Areas where the sea ice is open to walk on: BSG's walls inside come down, and new walls follow the ice's
-        // outer edge and the area's border wherever ice runs on out of it. Each area is a closed loop of world points
-        // "x,z; x,z;...", several separated by '|'.
+        // Areas where the sea ice is open to walk on
         private static readonly Dictionary<string, string> MapSeaOpenZones = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
             {
@@ -45,27 +40,22 @@ namespace WinterOutbreak
         private const int SeaMaxCells = 600000;
         private const float SeaMeshStep = 0.5f;
         private const float SeaIceLift = 0.05f;
-        // The sea ice's colliders stand this far over the water line, 2 cm under the drawn ice like the ponds'. At the
-        // water line a footstep's ray could meet the sea's own Water collider first and play a splash.
+        // The sea ice's colliders stand this far over the water line, 2 cm under the drawn ice like the ponds'
         private const float SeaColliderLift = 0.03f;
-        
-        // Water more than this far from any shore counts as open sea; water further than SeaShelterReach from the open
-        // sea, measured through the water, is a sheltered cove and freezes over completely.
+        // Water more than this far from any shore counts as open sea
         private const float SeaOpenWater = 50f;
         private const float SeaShelterReach = 40f;
         private const float SeaDeepReach = 12f;
         private const float SeaFloeReach = 18f;
-        
-        // Only coast within this distance of the map's walls freezes.
+        // Only coast within this distance of the map's walls freezes
         private const float SeaBorderReach = 60f;
-        
-        // The ice sheet's broken outer face reaches this far under the water line.
+        // The ice sheet's broken outer face reaches this far under the water line
         private const float SeaSlabDepth = 0.22f;
         private static readonly Vector4 SeaEdgeParams = new Vector4(1f, -0.01f, 0.7f, 0f);
 
-        // Chunks of 20 x 20 grid cells (about 60 m) for culling and the near and far versions.
+        // Chunks of 20 x 20 grid cells (about 60 m) for culling and the near and far versions
         private const int SeaChunkCells = 20;
-        // Squares this far inside the ice (m) are merged into strips; nearer the edge the rim needs every vertex.
+        // Squares this far inside the ice (m) are merged into strips
         private const float SeaMergeInside = 1f;
 
         private sealed class SeaMeshParts
@@ -94,8 +84,9 @@ namespace WinterOutbreak
             _frozenSea = new Fixed<bool>(true);
             _seaIceWidth = new Fixed<float>(22f);
 
-            _seaIceDetailDistance = Config.Bind("Frozen Lake", "Sea Ice Detail Distance (m)", 90f,
-                "Sea ice closer than this has a detailed edge. Lower it on weaker graphics cards; 0 always uses the simple edge.");
+            _seaIceDetailDistance = BindSetting(PerformanceSection, "Sea Ice Detail Distance (m)", 90f,
+                "Sea ice closer than this has a detailed edge. Lower it on weaker graphics cards; 0 always uses the simple edge.", 4,
+                oldSection: "Frozen Lake");
 
             _seaOpenZones = new Fixed<string>("");
         }
@@ -127,7 +118,7 @@ namespace WinterOutbreak
         {
             var clock = Stopwatch.StartNew();
 
-            // The sea is one flat level made of many quads; the ice covers the coast inside the map's walls.
+            // The sea is one flat level made of many quads
             Bounds sea = seaTargets[0].Renderer.bounds;
             foreach (var target in seaTargets)
             {
@@ -157,15 +148,14 @@ namespace WinterOutbreak
                 out int outsideCells, out _, out _, out var field, out var grid);
             long gridMs = clock.ElapsedMilliseconds;
 
-            // The grid fits whole cells into the area, so its cells are a little smaller than the step.
+            // The grid fits whole cells into the area, so its cells are a little smaller than the step
             float cellA = axisA.x / grid.CellsA;
             float cellB = axisB.z / grid.CellsB;
             field.Sea = true;
             int shoreCells = SeedSeaShores(field, grid, origin, axisA, axisB);
             int coveCells = MeasureSeaShelter(field, grid);
 
-            // Cells well inside the band are ice; the rest is open water and gets no colliders, so no strip reaches
-            // past the drawn ice
+            // Cells well inside the band are ice
             float width = Mathf.Clamp(Ice.SeaWidth, 4f, 80f);
             var edges = new float[grid.CellsA, grid.CellsB];
             int bandCells = 0;
@@ -210,10 +200,7 @@ namespace WinterOutbreak
                 out int farTriangles, out int chunks);
         }
 
-        // Opens the configured areas: BSG's walls inside come down, and walls go up along every edge between ice you
-        // can stand on inside an area and anything that is not land (open water, or ice outside the area), so you can
-        // walk the ice but not step off it into the water or follow it out of the area. Land beside the ice gets no
-        // wall.
+        // Opens the configured areas
         private string OpenSeaZones(string map, GameObject root, FrozenIce.IceField field, IceGrid grid, Vector3 origin,
             float cellA, float cellB, int wallLayer)
         {
@@ -240,8 +227,7 @@ namespace WinterOutbreak
                 }
             }
 
-            // BSG's walls with their middle inside an area. Very large ones (the map's long edges, the blocks under the
-            // terrain) stay.
+            // BSG's walls with their middle inside an area
             int border = LayerMask.NameToLayer("LevelBorder");
             int opened = 0;
             foreach (var collider in FindObjectsOfType<Collider>())
@@ -263,7 +249,7 @@ namespace WinterOutbreak
                 opened++;
             }
 
-            // Walls on the cell edges, merged into runs along each grid line.
+            // Walls on the cell edges, merged into runs along each grid line
             float top = grid.WaterY + IceWallHeight;
             int walls = 0;
             for (int i = 0; i <= na; i++)
@@ -310,7 +296,7 @@ namespace WinterOutbreak
         }
 
         // An edge between two neighbouring cells needs a wall when one side is ice you can stand on in an open area and
-        // the other is neither that nor land.
+        // the other is neither that nor land
         private static bool SeaZoneEdge(IceGrid grid, bool[,] walkable, int ia, int ja, int ib, int jb)
         {
             bool a = InGrid(grid, ia, ja) && walkable[ia, ja];
@@ -360,7 +346,7 @@ namespace WinterOutbreak
             return zones;
         }
 
-        // Even-odd test against each loop.
+        // Even-odd test against each loop
         private static bool InsideSeaZone(List<Vector2[]> zones, float x, float z)
         {
             foreach (var loop in zones)
@@ -384,8 +370,7 @@ namespace WinterOutbreak
             return false;
         }
 
-        // The coast to cover: the map's walls (LevelBorder) with some margin, or the terrain if a map has no walls, cut
-        // to the sea's extent.
+        // The coast to cover
         private static bool TrySeaRegion(Bounds sea, out Bounds region, out string source)
         {
             int border = LayerMask.NameToLayer("LevelBorder");
@@ -445,8 +430,7 @@ namespace WinterOutbreak
             return true;
         }
 
-        // The sea's shore is the terrain beside the water within reach of the map's walls; land and the far terrain
-        // edges outside the map do not seed any ice. Distances are spread again from those shores alone.
+        // The sea's shore is the terrain beside the water within reach of the map's walls
         private static int SeedSeaShores(FrozenIce.IceField field, IceGrid grid, Vector3 origin, Vector3 axisA, Vector3 axisB)
         {
             int border = LayerMask.NameToLayer("LevelBorder");
@@ -465,8 +449,7 @@ namespace WinterOutbreak
                         continue;
                     }
 
-                    // A shore near the map's walls, or beside shallow water with a sea bed under it. The cheap checks
-                    // come before the long open-sky rays.
+                    // A shore near the map's walls, or beside shallow water with a sea bed under it
                     Vector3 centre = CellCentre(origin, axisA, axisB, na, nb, i, j);
                     bool nearWall = Physics.CheckSphere(new Vector3(centre.x, grid.WaterY, centre.z), SeaBorderReach, mask,
                         QueryTriggerInteraction.Collide);
@@ -503,8 +486,7 @@ namespace WinterOutbreak
             return false;
         }
 
-        // Metres from each water cell to the open sea, measured through the water (land is a barrier): a few chamfer
-        // rounds from every cell further than SeaOpenWater from any shore. Water the open sea never reaches stays at
+        // Metres from each water cell to the open sea, measured through the water (land is a barrier)
         private static int MeasureSeaShelter(FrozenIce.IceField field, IceGrid grid)
         {
             int na = grid.CellsA, nb = grid.CellsB;
@@ -558,7 +540,7 @@ namespace WinterOutbreak
                 }
             }
 
-            // Land reads 0 so it does not bleed into the water cells beside it when sampled.
+            // Land reads 0 so it does not bleed into the water cells beside it when sampled
             int coves = 0;
             for (int k = 0; k < shelter.Length; k++)
             {
@@ -580,7 +562,7 @@ namespace WinterOutbreak
             return coves;
         }
 
-        // Beside water with a sea bed less than 30 m down.
+        // Beside water with a sea bed less than 30 m down
         private static bool BesideShallowWater(IceGrid grid, int i, int j)
         {
             for (int a = Mathf.Max(0, i - 1); a <= Mathf.Min(grid.CellsA - 1, i + 1); a++)
@@ -598,7 +580,7 @@ namespace WinterOutbreak
             return false;
         }
 
-        // Beside a water cell nothing stands over.
+        // Beside a water cell nothing stands over
         private static bool BesideOpenWater(IceGrid grid, Vector3 origin, Vector3 axisA, Vector3 axisB, int i, int j, int borderMask)
         {
             int water = LayerMask.NameToLayer("Water");
@@ -624,9 +606,7 @@ namespace WinterOutbreak
             return false;
         }
 
-        // How far a point lies inside the ice (metres, negative in open water). The band's width wanders along the
-        // coast at two scales; just past its edge some patches stay frozen as loose floes. The fine version adds the
-        // ragged metre-scale line the mesh is cut along.
+        // How far a point lies inside the ice (metres, negative in open water)
         private static float SeaEdge(FrozenIce.IceField field, float x, float z, float width, bool fine)
         {
             if (!field.TrySample(x, z, out float distance))
@@ -634,18 +614,17 @@ namespace WinterOutbreak
                 return -1f;
             }
 
-            // On the shore: the ice runs on under the ground, so it meets the land without a gap.
+            // On the shore
             if (distance <= 0.01f)
             {
                 return 1f;
             }
 
-            // Elsewhere it stays smooth.
+            // Elsewhere it stays smooth
             float rough = SeaRoughness(x, z);
             float edge = SeaBandWidth(x, z, width) - distance;
 
-            // Sheltered coves and channels freeze over from bank to bank: past SeaShelterReach from the open sea the
-            // ice reaches a metre further in for every metre further from it.
+            // Sheltered coves and channels freeze over from bank to bank
             if (field.TrySampleShelter(x, z, out float shelter))
             {
                 edge = Mathf.Max(edge, shelter - SeaShelterReach);
@@ -657,7 +636,7 @@ namespace WinterOutbreak
                 edge = Mathf.Max(edge, floe + edge * 0.15f);
             }
 
-            // Rough stretches add broken bites a metre or two across.
+            // Rough stretches add broken bites a metre or two across
             if (fine)
             {
                 edge += (Mathf.PerlinNoise(x / 6.1f + 1.7f, z / 6.1f + 9.2f) - 0.5f) * Mathf.Lerp(2.4f, 4f, rough)
@@ -668,7 +647,7 @@ namespace WinterOutbreak
             return edge;
         }
 
-        // 0 smooth, 1 broken up, in patches about 70 m across.
+        // 0 smooth, 1 broken up, in patches about 70 m across
         private static float SeaRoughness(float x, float z)
         {
             float patch = Mathf.PerlinNoise(x / 70f + 5.5f, z / 70f + 2.2f);
@@ -683,16 +662,7 @@ namespace WinterOutbreak
         }
 
         // The ice mesh, in chunks about 60 m square so cameras skip the ones they cannot see (the scope camera most of
-        // all). Each chunk has a near version and a coarse far version, swapped by distance from the main camera.
-        //
-        // Near version: each grid cell close to the band is split into 0.5 m squares, and the ice edge is traced
-        // through them (marching squares), so it follows the ragged line instead of the grid. Squares well inside the
-        // ice are merged into strips, cells fully inside are one quad, and terrain away from the water gets nothing.
-        // Each vertex carries how far inside the ice it lies (UV1.x, 0 on the outer edge) for the shader's pale rim.
-        // Along the outer edge a short face drops under the water line, facing out, so the edge reads as the side of a
-        // sheet of ice.
-        //
-        // Far version: the same trace on whole grid cells, a few hundred triangles per chunk.
+        // all)
         private int BuildSeaIceMesh(GameObject root, FrozenIce.IceField field, IceGrid grid, Vector3 origin, float cellA, float cellB,
             float width, float y, Material material, out int farTriangles, out int chunks)
         {
@@ -739,7 +709,7 @@ namespace WinterOutbreak
                                 }
                             }
 
-                            // Corners clockwise seen from above (x right, z up), so the triangles face up.
+                            // Corners clockwise seen from above (x right, z up), so the triangles face up
                             SetSquare(corners, x0, z0, cellA, cellB, y);
                             cornerValues[0] = values[0, 0];
                             cornerValues[1] = values[0, split];
@@ -782,8 +752,7 @@ namespace WinterOutbreak
             return nearTriangles;
         }
 
-        // One grid cell of the near version: rows of 0.5 m squares well inside the ice are merged into strips; squares
-        // near or across the edge are traced one by one.
+        // One grid cell of the near version: rows of 0.5 m squares well inside the ice are merged into strips
         private static void AddNearCell(SeaMeshParts parts, float[,] values, int split, float x0, float z0, float sa, float sb,
             float y, Vector3[] corners, float[] cornerValues, List<Vector3> polygon, List<float> polygonInside)
         {
@@ -850,8 +819,7 @@ namespace WinterOutbreak
             parts.Triangles.AddRange(new[] { first, first + 1, first + 2, first, first + 2, first + 3 });
         }
 
-        // Marching squares on one square: the inside corners plus the points where the edge crosses its sides, as one
-        // polygon (a fan), and the outer face under each piece of edge line.
+        // Marching squares on one square
         private static void TraceSquare(SeaMeshParts parts, Vector3[] corners, float[] cornerValues, List<Vector3> polygon,
             List<float> polygonInside)
         {
@@ -897,8 +865,7 @@ namespace WinterOutbreak
             AddEdgeFaces(parts, polygon, polygonInside);
         }
 
-        // Two neighbouring points on the outer edge (both at 0) are a piece of the edge line: a face from the ice down
-        // to under the water line, facing away from the ice.
+        // Two neighbouring points on the outer edge (both at 0) are a piece of the edge line
         private static void AddEdgeFaces(SeaMeshParts parts, List<Vector3> polygon, List<float> polygonInside)
         {
             Vector3 centre = Vector3.zero;
@@ -928,7 +895,7 @@ namespace WinterOutbreak
                     parts.Insides.Add(Vector2.zero);
                 }
 
-                // Unity's front face for (a, b, b + down) faces along Cross(b - a, down).
+                // Unity's front face for (a, b, b + down) faces along Cross(b - a, down)
                 bool outward = Vector3.Dot(Vector3.Cross(b - a, down), (a + b) * 0.5f - centre) > 0f;
                 if (outward)
                 {
@@ -947,7 +914,7 @@ namespace WinterOutbreak
             mesh.SetVertices(parts.Vertices);
             mesh.SetUVs(0, parts.Vertices.Select(p => new Vector2(p.x / IceTextureMetres, p.z / IceTextureMetres)).ToList());
             mesh.SetUVs(1, parts.Insides);
-            // Up everywhere, also on the edge faces: they are short, and lit like the ice top they read as its side.
+            // Up everywhere, also on the edge faces
             mesh.SetNormals(Enumerable.Repeat(Vector3.up, parts.Vertices.Count).ToList());
             mesh.SetTriangles(parts.Triangles, 0);
             mesh.RecalculateBounds();
@@ -965,7 +932,7 @@ namespace WinterOutbreak
             return renderer;
         }
 
-        // Near version within the configured distance of the main camera, far version beyond it.
+        // Near version within the configured distance of the main camera, far version beyond it
         private void UpdateSeaIceDetail()
         {
             if (_seaChunks.Count == 0)
@@ -998,7 +965,7 @@ namespace WinterOutbreak
             }
         }
 
-        // Terrain with terrain all around: no ice needed under it.
+        // Terrain with terrain all around: no ice needed under it
         private static bool IsInlandCell(IceGrid grid, int i, int j)
         {
             for (int a = Mathf.Max(0, i - 1); a <= Mathf.Min(grid.CellsA - 1, i + 1); a++)

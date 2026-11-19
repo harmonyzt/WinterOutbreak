@@ -37,7 +37,7 @@ namespace WinterOutbreak
             return $"# Winter Outbreak stair flights | map {map} | game {Application.version} | mod {WinterOutbreakPlugin.PluginVersion}";
         }
 
-        // Reads the flights and scanned tiles of an earlier raid on this map. Returns a line for the log.
+        // Reads the flights and scanned tiles of an earlier raid on this map
         internal string LoadStairCache(string path, string header)
         {
             if (!File.Exists(path))
@@ -79,7 +79,7 @@ namespace WinterOutbreak
                 + (rejected > 0 ? $", {rejected} unreadable or overlapping flights skipped" : "");
         }
 
-        // Writes every flight of this raid (cached and new) and every tile scanned so far.
+        // Writes every flight of this raid (cached and new) and every tile scanned so far
         internal string SaveStairCache(string path, string header)
         {
             var tiles = new HashSet<long>(_cachedStairTiles);

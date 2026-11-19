@@ -18,7 +18,8 @@ namespace WinterOutbreak
                     return true;
                 }
 
-                // Keep the effect out of the local effect list
+                // Keep the effect out of the local controller's effect list, including when EFT restores it from saved
+                // health
                 var player = Singleton<GameWorld>.Instance?.MainPlayer;
                 return player == null || !ReferenceEquals(player.ActiveHealthController, __instance.HealthController);
             }

@@ -4,9 +4,7 @@ using UnityEngine.Rendering;
 namespace WinterOutbreak
 {
     /// <summary>
-    /// Soft sheets of fine airborne snow around the camera. Each card drifts with the wind, wraps around a box centred
-    /// on the camera, and fades by distance so cards never pop. Card opacity follows the travelling pocket field, so
-    /// visibility gets worse as a dense cloud passes and recovers after it, instead of a uniform white-out.
+    /// Soft sheets of fine airborne snow around the camera.
     /// </summary>
     internal sealed class SnowHaze
     {
@@ -27,7 +25,7 @@ namespace WinterOutbreak
         private float _nextIndoorCheck;
         private bool _placed;
 
-        // A roof or deck this far above a card's middle hides it. Tree canopy does not count.
+        // A roof or deck this far above a card's middle hides it
         private const float RoofReach = 8f;
         private readonly System.Collections.Generic.Dictionary<Collider, bool> _treeColliders =
             new System.Collections.Generic.Dictionary<Collider, bool>();
@@ -69,7 +67,7 @@ namespace WinterOutbreak
             float R(float a, float b) => Mathf.Lerp(a, b, (float)random.NextDouble());
             for (int i = 0; i < cardCount; i++)
             {
-                // Alternate low wide streaky sheets and taller diffuse clouds.
+                // Alternate low wide streaky sheets and taller diffuse clouds
                 bool low = i % 3 != 2;
                 var go = new GameObject("Haze Card");
                 go.transform.SetParent(_root.transform, false);
@@ -100,7 +98,7 @@ namespace WinterOutbreak
 
         private static Mesh CreateCardMesh()
         {
-            // A 7x5 grid whose vertex alpha fades every edge, so the card has no visible outline.
+            // A 7x5 grid whose vertex alpha fades every edge, so the card has no visible outline
             const int nx = 7;
             const int ny = 5;
             var vertices = new Vector3[nx * ny];
@@ -168,7 +166,7 @@ namespace WinterOutbreak
                     || name.IndexOf("birch", System.StringComparison.OrdinalIgnoreCase) >= 0;
             }
 
-            // The haze outlives raids; drop the cache now and then so old map colliders do not pile up.
+            // The haze outlives raids
             if (_treeColliders.Count > 4096)
             {
                 _treeColliders.Clear();
@@ -178,9 +176,6 @@ namespace WinterOutbreak
             return tree;
         }
 
-        /// <param name="camera">Camera position.</param> <param name="feetY">Player's feet height, used as the local
-        /// ground reference.</param> <param name="outdoors">False while the player is indoors; the haze fades
-        /// out.</param>
         public void Update(Vector3 camera, float feetY, StormWind wind, float intensity, Color light,
             bool outdoors, float deltaTime)
         {
@@ -237,14 +232,14 @@ namespace WinterOutbreak
 
                 if (checkIndoor)
                 {
-                    // Hide cards whose middle sits inside a building or indoor volume, or under a roof or deck.
+                    // Hide cards whose middle sits inside a building or indoor volume, or under a roof or deck
                     Vector3 middle = position + Vector3.up * Mathf.Min(card.Height * 0.4f, 3f);
                     card.Visible = SnowSurface.IsInIndoorVolume(middle)
                         || Physics.CheckSphere(middle, 1.2f, GeometryMask, QueryTriggerInteraction.Ignore)
                         || IsUnderRoof(middle) ? 0f : 1f;
                 }
 
-                // Near fade keeps the flat card from being noticed; edge fade hides the wrap.
+                // Near fade keeps the flat card from being noticed
                 float fade = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(3f, 11f, distance))
                     * (1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(HalfLength * 0.6f, HalfLength, Mathf.Abs(card.Offset.x))))
                     * (1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(HalfWidth * 0.6f, HalfWidth, Mathf.Abs(card.Offset.y))));
@@ -263,12 +258,12 @@ namespace WinterOutbreak
                     continue;
                 }
 
-                // Face the camera around the vertical axis only, like a standing sheet of snow.
+                // Face the camera around the vertical axis only, like a standing sheet of snow
                 Quaternion facing = Quaternion.LookRotation(toCard / distance, Vector3.up);
                 card.Transform.SetPositionAndRotation(position, facing);
                 card.Transform.localScale = new Vector3(card.Width, card.Height, 1f);
 
-                // Internal churn: scroll the texture with the on-screen wind, plus slow lift.
+                // Internal churn: scroll the texture with the on-screen wind, plus slow lift
                 Vector3 right = facing * Vector3.right;
                 float lateral = Vector3.Dot(wind.Direction, right) * wind.SnowSpeed * 0.45f;
                 card.Uv.x -= lateral / card.Width * card.UvScale.x * deltaTime;
@@ -277,7 +272,7 @@ namespace WinterOutbreak
                 card.Uv.y -= Mathf.Floor(card.Uv.y);
 
                 _properties.SetVector(TexStId, new Vector4(card.UvScale.x, card.UvScale.y, card.Uv.x, card.Uv.y));
-                // Legacy particle shaders double the tint, so 0.5 means unchanged.
+                // Legacy particle shaders double the tint, so 0.5 means unchanged
                 Color hazeTint = light;
                 _properties.SetColor(TintId, new Color(hazeTint.r * 0.48f, hazeTint.g * 0.48f, hazeTint.b * 0.485f,
                     Mathf.Clamp01(card.Alpha) * 0.5f));

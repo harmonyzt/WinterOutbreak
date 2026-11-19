@@ -37,7 +37,7 @@ namespace WinterOutbreak
             _footprintsEnabled = new Fixed<bool>(true);
             _footprintRefillSeconds = new Fixed<float>(45f);
             _maxFootprintsPerChunk = new Fixed<int>(32);
-            // Boot prints in the snow stay.
+            // Boot prints in the snow stay
             _trackSnowIndoors = new Fixed<bool>(false);
         }
 
@@ -116,14 +116,12 @@ namespace WinterOutbreak
                 return;
             }
 
-            _voxelSnow.AnimatedBootPlants++;
             bool compressed = _voxelSnow.StampFootprint(foot, forward, _footprintRefillSeconds.Value);
             UpdateTrackedSnow(foot, forward, outdoors, compressed);
         }
 
         /// <summary>
-        /// Called as EFT plays a walk, run or sprint footstep for a player. The landing foot is the lower one. A second
-        /// trigger for boot prints, for strides the animated-foot check does not see as a plant.
+        /// Called as EFT plays a walk, run or sprint footstep for a player.
         /// </summary>
         internal void OnSnowStepSound(Player player)
         {
@@ -141,7 +139,6 @@ namespace WinterOutbreak
                 return;
             }
 
-            _voxelSnow.StepSoundBootPlants++;
             bool compressed = _voxelSnow.StampFootprint(foot, forward, _footprintRefillSeconds.Value);
             UpdateTrackedSnow(foot, forward, player.Environment == EnvironmentType.Outdoor, compressed);
         }
@@ -216,14 +213,14 @@ namespace WinterOutbreak
                 _proneSince = now;
             }
 
-            // The body sinks in over a moment as you lie down, instead of the snow dropping 26 cm at once.
+            // The body sinks in over a moment as you lie down, instead of the snow dropping 26 cm at once
             float settle = Mathf.SmoothStep(0f, 1f, (now - _proneSince) / ProneSettleSeconds);
             if (trail && (settle < 1f || now - _lastTrailTime > 3f
                 || (center - _lastTrailCenter).sqrMagnitude > 0.05f * 0.05f
                 || Vector3.Dot(direction, _lastTrailDirection) < 0.996f))
             {
                 // Every 5 cm or 5 degrees (and every frame while settling, and every 3 s lying still, so the furrow
-                // does not refill under you): it follows the body instead of appearing in 40 cm steps.
+                // does not refill under you)
                 _voxelSnow.PressProneTrail(center, direction, refill, settle);
                 _lastTrailCenter = center;
                 _lastTrailDirection = direction;
@@ -237,7 +234,7 @@ namespace WinterOutbreak
 
             _nextProneSample = now + 0.25f;
             bool moved = (center - _lastProneCenter).sqrMagnitude > 0.40f * 0.40f;
-            // Turns refine the mesh sooner with GPU prints, so the furrow has fine cells to press as it swings.
+            // Turns refine the mesh sooner with GPU prints, so the furrow has fine cells to press as it swings
             bool turned = Vector3.Dot(direction, _lastProneDirection) < (trail ? 0.95f : 0.86f);
             if (now < _nextProneRefresh && !moved && !turned)
             {

@@ -32,12 +32,17 @@ namespace WinterOutbreak
 
         private void BindBtrSnowSettings()
         {
-            const string section = "BTR Snow";
-            _btrTracks = Config.Bind(section, "Tracks", true, "The BTR leaves tyre tracks in the snow.");
-            _btrSpray = Config.Bind(section, "Spray", 1f,
-                new ConfigDescription("How much snow the BTR's wheels throw up. 0 turns it off.", new AcceptableValueRange<float>(0f, 2f)));
-            _btrTrackRefillSeconds = Config.Bind(section, "Track Refill Seconds", 240f,
-                new ConfigDescription("How long a BTR track takes to fill back in.", new AcceptableValueRange<float>(30f, 900f)));
+            const string oldSection = "BTR Snow";
+
+            _btrTracks = BindSetting(SnowSection, "BTR Tracks", true,
+                "The BTR leaves tyre tracks in the snow.", 5,
+                oldSection: oldSection, oldKey: "Tracks");
+            _btrSpray = BindSetting(SnowSection, "BTR Spray", 1f,
+                "How much snow the BTR's wheels throw up. 0 turns it off.", 20,
+                true, new AcceptableValueRange<float>(0f, 2f), oldSection, "Spray");
+            _btrTrackRefillSeconds = BindSetting(SnowSection, "BTR Track Refill Seconds", 240f,
+                "How long a BTR track takes to fill back in.", 21,
+                true, new AcceptableValueRange<float>(30f, 900f), oldSection, "Track Refill Seconds");
         }
 
         private void UpdateBtrSnow(Player player)
@@ -53,7 +58,7 @@ namespace WinterOutbreak
             if (!ReferenceEquals(view, _btrView))
             {
                 _btrView = view;
-                // Front and rear wheel on each side. The middle wheels run in the same ruts.
+                // Front and rear wheel on each side
                 _btrWheels[0] = view.leftWheel1;
                 _btrWheels[1] = view.leftWheel4;
                 _btrWheels[2] = view.rightWheel1;
@@ -67,7 +72,7 @@ namespace WinterOutbreak
             Vector3 body = view.transform.position;
             float measured = Vector3.Distance(body, _btrLastPosition) / dt;
             _btrLastPosition = body;
-            // A jump (respawn or sync correction) is not driving.
+            // A jump (respawn or sync correction) is not driving
             _btrSpeed = measured > 30f ? 0f : Mathf.Lerp(_btrSpeed, measured, Mathf.Clamp01(dt * 4f));
 
             float distance = Vector3.Distance(player.Position, body);
@@ -120,7 +125,7 @@ namespace WinterOutbreak
                     continue;
                 }
 
-                // Overlap each segment slightly with the last so the groove has no seams.
+                // Overlap each segment slightly with the last so the groove has no seams
                 Vector3 start = _btrLastWheel[i] - travel / length * 0.1f;
                 _voxelSnow.StampTrack(start, position, TrackHalfWidth, TrackMaxDepth, refill);
                 _btrLastWheel[i] = position;
@@ -135,8 +140,9 @@ namespace WinterOutbreak
                 return;
             }
 
-            // Particles per wheel per second grow with speed; fewer further away.
-            float rate = Mathf.Clamp(_btrSpeed * 22f, 0f, 220f) * _btrSpray.Value * Mathf.Lerp(1f, 0.35f, Mathf.InverseLerp(20f, SprayRange, distance));
+            // Particles per wheel per second grow with speed
+            float rate = Mathf.Clamp(_btrSpeed * 22f, 0f, 220f) * _btrSpray.Value
+                * Mathf.Lerp(1f, 0.35f, Mathf.InverseLerp(20f, SprayRange, distance));
             _btrSprayCarry += rate * dt;
             int count = Mathf.FloorToInt(_btrSprayCarry);
             if (count <= 0)
@@ -185,7 +191,7 @@ namespace WinterOutbreak
 
             _btrSnowSpray?.Dispose();
             _btrSnowSpray = null;
-            // Raid-end cleanup for the other burst effects that share this hook.
+            // Raid-end cleanup for the other burst effects that share this hook
             ClearBulletSnow();
             ClearSnowCoats();
             _btrSprayCarry = 0f;
@@ -194,7 +200,7 @@ namespace WinterOutbreak
 
     /// <summary>
     /// Snow thrown up behind and to the side of the BTR's wheels: grains on ballistic arcs and billowing powder
-    /// (SnowPowder) that hangs in the air behind it. Both take the scene's snow light.
+    /// (SnowPowder) that hangs in the air behind it.
     /// </summary>
     internal sealed class BtrSnowSpray
     {
@@ -217,10 +223,7 @@ namespace WinterOutbreak
             }
 
             _texture = CreatePuffTexture();
-            _material = new Material(shader)
-            {
-                mainTexture = _texture
-            };
+            _material = new Material(shader) { mainTexture = _texture };
             var emitter = new GameObject("Winter Outbreak BTR Snow Spray");
             emitter.SetActive(false);
             _particles = emitter.AddComponent<ParticleSystem>();
@@ -264,32 +267,37 @@ namespace WinterOutbreak
             }
 
             float lift = Mathf.Lerp(0.7f, 1.25f, snow);
-            // Bursty, not a steady stream: each wheel's output swells and drops as the tyre bites and slips.
+            // Bursty, not a steady stream
             float burst = Mathf.PerlinNoise(Time.time * 2.3f, contact.x * 0.37f + contact.z * 0.21f);
             count = Mathf.RoundToInt(count * Mathf.Lerp(0.25f, 1.6f, burst));
             Color dirt = new Color(_light.r * 0.60f, _light.g * 0.50f, _light.b * 0.42f, 1f);
             for (int i = 0; i < count; i++)
             {
-                // Thrown back off the tyre (a rooster tail at speed) and out to the side.
-                Vector3 velocity = -forward * (speed * Range(0.25f, 0.7f)) + outward * Range(0.6f, 3.0f) + Vector3.up * Range(1.4f, 4.6f) * lift + Random3() * 0.8f;
-                Vector3 position = contact + forward * Range(-0.6f, 0.2f) + outward * Range(0f, 0.3f) + Vector3.up * Range(0.02f, 0.2f);
-                // Road snow is churned with dirt and slush: some powder is tinted and some grains are dark.
+                // Thrown back off the tyre (a rooster tail at speed) and out to the side
+                Vector3 velocity = -forward * (speed * Range(0.25f, 0.7f))
+                    + outward * Range(0.6f, 3.0f) + Vector3.up * Range(1.4f, 4.6f) * lift
+                    + Random3() * 0.8f;
+                Vector3 position = contact + forward * Range(-0.6f, 0.2f) + outward * Range(0f, 0.3f)
+                    + Vector3.up * Range(0.02f, 0.2f);
+                // Road snow is churned with dirt and slush: some powder is tinted and some grains are dark
                 if (_random.NextDouble() < 0.45)
                 {
                     float shade = Range(0.78f, 1.0f);
-                    // Mottled: some puffs are churned slush and road dirt, most are snow with a trace of it.
+                    // Mottled
                     float share = _random.NextDouble() < 0.4 ? Range(0.25f, 0.7f) : Range(0f, 0.2f);
                     Color puff = Color.Lerp(_light, dirt, share) * shade;
                     float hue = Range(-0.03f, 0.03f);
                     puff.r += hue;
                     puff.b -= hue;
                     puff.a = Range(0.10f, 0.22f);
-                    _powder.Emit(position, velocity * Range(0.4f, 0.7f), Range(0.35f, 1.3f), Range(1.2f, 3.0f), puff, Range(0f, 360f));
+                    _powder.Emit(position, velocity * Range(0.4f, 0.7f), Range(0.35f, 1.3f), Range(1.2f, 3.0f),
+                        puff, Range(0f, 360f));
                     continue;
                 }
 
                 float brightness = Range(0.75f, 1.0f);
-                Color grain = _random.NextDouble() < 0.32 ? dirt * Range(0.7f, 1.1f) : Color.Lerp(_light, dirt, Range(0f, 0.25f)) * brightness;
+                Color grain = _random.NextDouble() < 0.32 ? dirt * Range(0.7f, 1.1f)
+                    : Color.Lerp(_light, dirt, Range(0f, 0.25f)) * brightness;
                 grain.a = Range(0.6f, 0.85f);
                 var particle = new ParticleSystem.EmitParams
                 {

@@ -19,9 +19,7 @@ namespace WinterOutbreak
     }
 
     /// <summary>
-    /// Builds the bonfire: the Customs bonfire from bonfire.bundle (see BonfirePrefab), plus a flickering light and the
-    /// crackle. Without the bundle it falls back to a ring of stones around a teepee of logs made from Unity
-    /// primitives, with flames copied from a burning barrel on the map or simple built-in flames.
+    /// Builds the bonfire
     /// </summary>
     internal static class BonfireVisuals
     {
@@ -51,7 +49,7 @@ namespace WinterOutbreak
                 BuildPile(root.transform, 1);
             }
 
-            // EFT's own placing look (the one beacons and tripwires use): green when it fits, red when not.
+            // EFT's own placing look (the one beacons and tripwires use): green when it fits, red when not
             foreach (var renderer in root.GetComponentsInChildren<MeshRenderer>())
             {
                 renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
@@ -69,7 +67,7 @@ namespace WinterOutbreak
             int seed = Random.Range(1, 100000);
             FindMapFire();
 
-            // The Customs bonfire from bonfire.bundle; the pile built from primitives only if that is missing.
+            // The Customs bonfire from bonfire.bundle
             string source;
             if (BonfirePrefab.IsAvailable)
             {
@@ -166,7 +164,7 @@ namespace WinterOutbreak
             AddPart(root, PrimitiveType.Cylinder, _ash, new Vector3(0f, 0.005f, 0f), Quaternion.identity,
                 new Vector3(0.62f, 0.005f, 0.62f));
 
-            // Ring of stones.
+            // Ring of stones
             const int stones = 9;
             for (int i = 0; i < stones; i++)
             {
@@ -178,7 +176,7 @@ namespace WinterOutbreak
                 AddPart(root, PrimitiveType.Sphere, _stone, place, turn, size);
             }
 
-            // Two charred logs lying across the fire bed.
+            // Two charred logs lying across the fire bed
             for (int i = 0; i < 2; i++)
             {
                 float yaw = i * 90f + Range(random, -20f, 20f);
@@ -186,7 +184,7 @@ namespace WinterOutbreak
                     Quaternion.Euler(0f, yaw, 90f), new Vector3(0.09f, 0.27f, 0.09f));
             }
 
-            // Teepee of logs leaning in to a point above the middle.
+            // Teepee of logs leaning in to a point above the middle
             const int logs = 5;
             for (int i = 0; i < logs; i++)
             {
@@ -210,7 +208,7 @@ namespace WinterOutbreak
         {
             var part = GameObject.CreatePrimitive(shape);
 
-            // No colliders: the bonfire must not block the placing rays or end up as ground under the snow.
+            // No colliders
             Object.DestroyImmediate(part.GetComponent<Collider>());
 
             part.transform.SetParent(root, false);
@@ -263,7 +261,7 @@ namespace WinterOutbreak
             {
                 for (int x = 0; x < size; x++)
                 {
-                    // Streaks along the length of a log, blotches across it.
+                    // Streaks along the length of a log, blotches across it
                     float streak = Mathf.PerlinNoise(x * 0.35f, y * 0.04f);
                     float blotch = Mathf.PerlinNoise(x * 0.12f + 9f, y * 0.12f + 3f);
                     byte value = (byte)(Mathf.Lerp(0.62f, 1f, streak * 0.6f + blotch * 0.4f) * 255f);
@@ -276,7 +274,7 @@ namespace WinterOutbreak
             return texture;
         }
 
-        // Once per raid: a burning barrel to copy flames from, and a looping fire sound to borrow.
+        // Once per raid
         private static void FindMapFire()
         {
             if (_searchedMap)
@@ -345,7 +343,7 @@ namespace WinterOutbreak
 
             foreach (var system in root.GetComponentsInChildren<ParticleSystem>(true))
             {
-                // Only the outermost systems; their children come along with them.
+                // Only the outermost systems
                 if (HasParticleAncestor(system.transform, root))
                 {
                     continue;
@@ -388,7 +386,7 @@ namespace WinterOutbreak
             return false;
         }
 
-        // The copy keeps its particles and sounds, nothing else: no damage triggers, colliders, lights or map scripts.
+        // The copy keeps its particles and sounds, nothing else
         private static void StripCopy(GameObject copy)
         {
             foreach (var behaviour in copy.GetComponentsInChildren<MonoBehaviour>(true))

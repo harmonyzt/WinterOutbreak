@@ -8,7 +8,7 @@ namespace WinterOutbreak
     internal static class LimbPriority
     {
         // EBodyPart lives in the global namespace, and Common is a bucket for skills rather than a limb, so it is not
-        // in this list.
+        // in this list
         private static readonly EBodyPart[] Limbs =
         {
             EBodyPart.Head,
@@ -30,8 +30,7 @@ namespace WinterOutbreak
 
             foreach (var limb in Limbs)
             {
-                // A destroyed limb comes back through RestoreBodyPart and nothing else. Heal() is not that, and a
-                // barrel is not a surgical kit.
+                // A destroyed limb comes back through RestoreBodyPart and nothing else
                 if (health.IsBodyPartDestroyed(limb))
                 {
                     continue;

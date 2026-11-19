@@ -5,7 +5,7 @@ namespace WinterOutbreak
 {
     internal sealed partial class VoxelSnowArea
     {
-        // Bare ground inside this radius of a fire, feathering back to full snow over MeltFeather.
+        // Bare ground inside this radius of a fire, feathering back to full snow over MeltFeather
         private const float MeltRadius = 1.6f;
         private const float MeltFeather = 1.4f;
         private const float MeltSeconds = 45f;
@@ -20,8 +20,7 @@ namespace WinterOutbreak
             public Vector2 Center;
             public float Started;
             public float StampedProgress;
-            
-            // One outline for the fire's whole melt
+            // One outline for the fire's whole melt, so it grows instead of changing shape at each step
             public Vector2 Phases;
             public bool Refined;
         }
@@ -29,14 +28,16 @@ namespace WinterOutbreak
         private const float FireMeltStampSeconds = 2f;
         private const float FireMeltTrailSeconds = 0.1f;
         private float _nextFireMeltTrail;
-        
-        // Fires burn for the raid
+        // Fires burn for the raid: their melt stamps effectively never refill
         private const float FireMeltForever = 100000f;
         private float _nextFireMeltStamp;
-        
+
+        /// <summary>
+        /// With GPU prints, a fire's melt is a smooth round stamp in the print texture, growing with the melt, instead of the 25 cm grid melt.
+        /// </summary>
         private void UpdateGpuFireMelts()
         {
-            // The texture grows the melt about ten times a second (GPU only)
+            // The texture grows the melt about ten times a second (GPU only), so it spreads smoothly
             float now = Time.time;
             if (_prints == null || _fireMelts.Count == 0 || now < _nextFireMeltTrail)
             {
@@ -126,8 +127,7 @@ namespace WinterOutbreak
         }
 
         /// <summary>
-        /// Clears snow around a fire. A fire known before its snow is built never shows snow; one found later melts its
-        /// patch gradually.
+        /// Clears snow around a fire.
         /// </summary>
         public void AddFire(Vector3 position, bool instant)
         {
@@ -170,7 +170,7 @@ namespace WinterOutbreak
         }
 
         /// <summary>
-        /// 1 for full snow, 0 for bare ground beside a fire
+        /// 1 for full snow, 0 for bare ground beside a fire.
         /// </summary>
         private float FireMeltFactor(float x, float z)
         {
@@ -196,7 +196,7 @@ namespace WinterOutbreak
                 float value = Mathf.SmoothStep(0f, 1f, (distance - bare) / edge);
                 if (progress < 1f)
                 {
-                    // Early in the melt the snow thins everywhere in range before the bare patch opens.
+                    // Early in the melt the snow thins everywhere in range before the bare patch opens
                     value = Mathf.Min(1f, value + (1f - progress) * 0.6f);
                 }
 
@@ -207,7 +207,7 @@ namespace WinterOutbreak
         }
 
         /// <summary>
-        /// True when a chunk is still melting, so it keeps rebuilding
+        /// True when a chunk is still melting, so it keeps rebuilding until settled.
         /// </summary>
         private bool IsChunkMelting(Chunk chunk)
         {

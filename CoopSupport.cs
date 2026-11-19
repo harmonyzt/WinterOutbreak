@@ -4,8 +4,7 @@ using UnityEngine;
 namespace WinterOutbreak
 {
     /// <summary>
-    /// What the optional Fika add-on (WinterOutbreak.Fika.dll) provides. Without it every game runs on its own, exactly
-    /// as in single player.
+    /// What the optional Fika add-on (WinterOutbreak.Fika.dll) provides.
     /// </summary>
     public interface IWinterOutbreakNetwork
     {
@@ -25,7 +24,7 @@ namespace WinterOutbreak
         void SendWeather(SharedWeather weather);
 
         /// <summary>
-        /// Sends a bonfire this game built: a client sends it to the host, the host to every client.
+        /// Sends a bonfire this game built
         /// </summary>
         void SendBonfire(SharedBonfire bonfire);
     }
@@ -58,7 +57,7 @@ namespace WinterOutbreak
         public string Ice;
 
         /// <summary>
-        /// The host's sky for this raid: "aurora,green,flakes" (CoopWeather.cs), or empty until decided.
+        /// The host's sky for this raid
         /// </summary>
         public string Sky;
     }
@@ -70,7 +69,7 @@ namespace WinterOutbreak
     }
 
     /// <summary>
-    /// The add-on's way in. Everything here runs on Unity's main thread.
+    /// The add-on's way in.
     /// </summary>
     public static class CoopSupport
     {

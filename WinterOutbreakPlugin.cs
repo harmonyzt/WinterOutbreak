@@ -6,7 +6,6 @@ using EFT;
 using EFT.Communications;
 using EFT.UI.Matchmaker;
 using EFT.Weather;
-using EFTEffectManager;
 using HarmonyLib;
 
 namespace WinterOutbreak
@@ -15,9 +14,14 @@ namespace WinterOutbreak
     public sealed partial class WinterOutbreakPlugin : BaseUnityPlugin
     {
         private const string PluginId = "com.harmonyzt.winteroutbreak";
-        internal const string PluginVersion = "1.0.0";
+        internal const string PluginVersion = "1.0.1";
 
+        // Snowstorm weather (snowfall, fog, clouds, wind) is 40 % of Blizzard
         private const float SnowstormShare = 0.4f;
+
+        // Snowstorm wind effects (drift, plumes, gusts, gust clouds) are about 62 % as strong as in a Blizzard and come about 40 % as often
+        private const float SnowstormEffectStrength = 0.62f;
+        private const float SnowstormGustRate = 0.45f;
 
         private static readonly StormPreset Blizzard = new StormPreset(
             "Blizzard", snowfall: 1f, fog: 0.12f, clouds: 0.9f,
@@ -49,24 +53,21 @@ namespace WinterOutbreak
 
         private void Awake()
         {
-            _stormChance = Config.Bind(
-                "Storm Chances", "Storm Chance", 100,
-                new ConfigDescription("Chance, in percent, that a winter raid gets a storm.",
-                    new AcceptableValueRange<int>(0, 100)));
+            _stormChance = BindSetting(StormsSection, "Storm Chance", 100,
+                "Chance, in percent, that a winter raid gets a storm.", 1,
+                range: new AcceptableValueRange<int>(0, 100), oldSection: "Storm Chances");
 
-            _snowstormWeight = Config.Bind(
-                "Storm Chances", "Snowstorm Weight", 50,
-                new ConfigDescription("How often a storm is a Snowstorm, compared with Blizzard Weight.",
-                    new AcceptableValueRange<int>(0, 100)));
+            _snowstormWeight = BindSetting(StormsSection, "Snowstorm Weight", 50,
+                "How often a storm is a Snowstorm, compared with Blizzard Weight.", 2,
+                range: new AcceptableValueRange<int>(0, 100), oldSection: "Storm Chances");
 
-            _blizzardWeight = Config.Bind(
-                "Storm Chances", "Blizzard Weight", 50,
-                new ConfigDescription("How often a storm is a Blizzard, compared with Snowstorm Weight.",
-                    new AcceptableValueRange<int>(0, 100)));
+            _blizzardWeight = BindSetting(StormsSection, "Blizzard Weight", 50,
+                "How often a storm is a Blizzard, compared with Snowstorm Weight.", 3,
+                range: new AcceptableValueRange<int>(0, 100), oldSection: "Storm Chances");
 
-            _disabledMaps = Config.Bind(
-                "Storm Chances", "Disabled Maps", "laboratory,labyrinth,terminal,icebreaker",
-                "Maps that never get winter storms, separated by commas.");
+            _disabledMaps = BindSetting(StormsSection, "Disabled Maps", "laboratory,labyrinth,terminal,icebreaker",
+                "Maps that never get winter storms, separated by commas.", 4,
+                advanced: true, oldSection: "Storm Chances");
 
             BindFrostbiteSettings();
             BindFrozenFoodSettings();
@@ -87,6 +88,7 @@ namespace WinterOutbreak
             BindAuroraSettings();
             BindFrozenLakeSettings();
             BindBonfireSettings();
+            SortSettingsBySection();
 
             _plugin = this;
             _harmony = new Harmony(PluginId);
@@ -117,6 +119,11 @@ namespace WinterOutbreak
         }
 
         private void UpdateRaidWeather(WeatherController weather)
+        {
+            UpdateRaidWeatherCore(weather);
+        }
+
+        private void UpdateRaidWeatherCore(WeatherController weather)
         {
             if (WeatherController.Instance != weather)
             {
@@ -166,7 +173,7 @@ namespace WinterOutbreak
             if (!_rolled)
             {
                 // A Fika host rolls once the raid starts even without falling flakes, since a headless host draws none
-                // but runs the bots that see through the storm.
+                // but runs the bots that see through the storm
                 bool hostInRaid = CoopSupport.IsHost && raidStarted;
                 if (!raidPreparing && !hostInRaid && (flakes == null || !flakes.isActiveAndEnabled))
                 {
@@ -198,6 +205,7 @@ namespace WinterOutbreak
                 UpdateSnowDepth(stormPlayer, false);
             }
 
+            UpdateFarSnow(stormPlayer);
             UpdateGrenadeSnow(stormPlayer);
             UpdateSnowInteraction(stormPlayer, weather);
             UpdateAiSnow(stormPlayer);
@@ -329,8 +337,7 @@ namespace WinterOutbreak
             }
         }
 
-        // Indoor and enclosed maps (Labs, Labyrinth, Terminal, Icebreaker) get no storm: snow and drift there only came
-        // in through doors and filled windowless rooms.
+        // Indoor and enclosed maps (Labs, Labyrinth, Terminal, Icebreaker) get no storm
         private bool IsDisabledMap(string location)
         {
             if (string.IsNullOrEmpty(location))
@@ -338,17 +345,31 @@ namespace WinterOutbreak
                 return false;
             }
 
-            foreach (string part in _disabledMaps.Value.Split(','))
+            // This runs every frame, so the answer is kept until the map or the setting changes
+            if (location == _disabledMapLocation && _disabledMaps.Value == _disabledMapSetting)
+            {
+                return _disabledMapResult;
+            }
+
+            _disabledMapLocation = location;
+            _disabledMapSetting = _disabledMaps.Value;
+            _disabledMapResult = false;
+            foreach (string part in _disabledMapSetting.Split(','))
             {
                 string name = part.Trim();
                 if (name.Length > 0 && location.IndexOf(name, StringComparison.OrdinalIgnoreCase) >= 0)
                 {
-                    return true;
+                    _disabledMapResult = true;
+                    break;
                 }
             }
 
-            return false;
+            return _disabledMapResult;
         }
+
+        private string _disabledMapLocation;
+        private string _disabledMapSetting;
+        private bool _disabledMapResult;
 
         private void ClearWeather(string reason)
         {
@@ -357,6 +378,7 @@ namespace WinterOutbreak
             ResetExposure();
             ClearBreathSmoke();
             ClearAurora();
+            ClearFarSnow();
             ClearSnowDepth(reason);
             ClearSnowInteraction();
             ClearTreeSnow();

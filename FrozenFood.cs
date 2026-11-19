@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using BepInEx.Configuration;
 using Comfort.Common;
 using EFT;
 using EFT.Communications;
@@ -16,7 +15,7 @@ namespace WinterOutbreak
     public sealed partial class WinterOutbreakPlugin
     {
         private const float InitialIce = 0.65f;
-        // Ice shows on the item from the first tick. Below this fraction it can still be eaten or drunk.
+        // Ice shows on the item from the first tick
         private const float VisibleIce = 0.01f;
         private const float FrozenThreshold = 0.1f;
         private const string FrozenMessage = "This food or drink is frozen.";
@@ -331,7 +330,7 @@ namespace WinterOutbreak
                 _icon.enabled = _icon.sprite != null;
             }
 
-            // Still usable during the grace fraction: the icon stays faint until the item locks.
+            // Still usable during the grace fraction
             var food = _view != null ? _view.Item as FoodDrink : null;
             _icon.color = WinterOutbreakPlugin.IsFoodFrozen(food) ? Color.white : new Color(1f, 1f, 1f, 0.45f);
             _fill.sizeDelta = new Vector2(18f * ice, 2f);

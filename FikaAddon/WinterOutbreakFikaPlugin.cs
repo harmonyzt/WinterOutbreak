@@ -10,16 +10,14 @@ using UnityEngine;
 namespace WinterOutbreak.Fika
 {
     /// <summary>
-    /// Fika sync for Winter Outbreak. The host rolls the storm and runs the snow depth timeline; clients ask for it
-    /// until they have it, and the host repeats it every few seconds. Bonfires go from the builder to the host and on
-    /// to everyone else. Install on every peer, including a headless host.
+    /// Fika sync for Winter Outbreak.
     /// </summary>
     [BepInPlugin("com.harmonyzt.winteroutbreak.fika", "Winter Outbreak Fika Sync", "1.0.0")]
     [BepInDependency("com.harmonyzt.winteroutbreak")]
     [BepInDependency("com.fika.core")]
     public sealed class WinterOutbreakFikaPlugin : BaseUnityPlugin, IWinterOutbreakNetwork
     {
-        // 3: the weather also carries the host's sky (aurora and extra Blizzard flakes).
+        // 3: the weather also carries the host's sky (aurora and extra Blizzard flakes)
         private const string ProtocolVersion = "3";
         private const float ReadySeconds = 3f;
 
@@ -27,8 +25,7 @@ namespace WinterOutbreak.Fika
         private float _nextReady;
         private bool _warnedMismatch;
 
-        // Fika knows the role from matchmaking, before its network manager exists. A client must know it is one before
-        // the countdown, or it would roll its own storm.
+        // Fika knows the role from matchmaking, before its network manager exists
         public bool IsHost => FikaBackendUtils.IsServer;
 
         public bool IsClient => FikaBackendUtils.IsClient;
@@ -136,7 +133,7 @@ namespace WinterOutbreak.Fika
             {
                 CoopSupport.ReceiveBonfire(new SharedBonfire { Position = packet.Position, Yaw = packet.Yaw });
 
-                // Pass it on to every client. The builder already has it and skips a bonfire in the same spot.
+                // Pass it on to every client
                 Send(packet);
             }
         }

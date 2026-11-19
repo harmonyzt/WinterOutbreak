@@ -63,8 +63,7 @@ namespace WinterOutbreak
                 }
             }
 
-            // A prop with no usable render mesh gets no cap at all and shows only EFT's own snow. Count it for the raid
-            // log, so the props that need another kind of snow cover can be named.
+            // A prop with no usable render mesh gets no cap at all and shows only EFT's own snow
             if (surface == null && !anyModel && (filters.Length == 0 || unusable != null))
             {
                 string reason = filters.Length == 0 ? "no matching render mesh"
@@ -75,12 +74,8 @@ namespace WinterOutbreak
             return surface != null;
         }
 
-        private const int MaxCapSkipNames = 400;
-        private readonly Dictionary<string, int> _capSkips = new Dictionary<string, int>();
-        private int _capSkipCells;
-
         // Props with no usable mesh, handed once each to the snow coats (SnowCoats.cs), which draw the game's own mesh
-        // again with snow on its upward faces instead.
+        // again with snow on its upward faces instead
         private const int MaxUncappedProps = 4096;
         private readonly HashSet<Collider> _uncappedProps = new HashSet<Collider>();
         private readonly Queue<Collider> _newUncappedProps = new Queue<Collider>();
@@ -98,17 +93,6 @@ namespace WinterOutbreak
             if (_uncappedProps.Count < MaxUncappedProps && _uncappedProps.Add(collider))
             {
                 _newUncappedProps.Enqueue(collider);
-            }
-
-            _capSkipCells++;
-            string key = $"{collider.transform.parent?.name ?? collider.name}/{collider.name}: {reason}";
-            if (_capSkips.TryGetValue(key, out int count))
-            {
-                _capSkips[key] = count + 1;
-            }
-            else if (_capSkips.Count < MaxCapSkipNames)
-            {
-                _capSkips.Add(key, 1);
             }
         }
 
@@ -147,7 +131,7 @@ namespace WinterOutbreak
 
                     if (_propNodes.Count + node.childCount > maxNodes)
                     {
-                        // Stop before a collider lookup can turn into a search of an entire map group.
+                        // Stop before a collider lookup can turn into a search of an entire map group
                         return System.Array.Empty<MeshFilter>();
                     }
 
@@ -221,7 +205,7 @@ namespace WinterOutbreak
             _vertices = vertices;
         }
 
-        // Why Create returned null for this mesh, in the same order as its checks.
+        // Why Create returned null for this mesh, in the same order as its checks
         internal static string DescribeUnusable(MeshFilter filter)
         {
             Mesh mesh = filter.sharedMesh;

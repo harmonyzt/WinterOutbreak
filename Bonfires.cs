@@ -13,7 +13,7 @@ using UnityEngine.Networking;
 namespace WinterOutbreak
 {
     /// <summary>
-    /// Placeable bonfires
+    /// Placeable bonfires.
     /// </summary>
     public sealed partial class WinterOutbreakPlugin
     {
@@ -23,9 +23,11 @@ namespace WinterOutbreak
             "5e2af2bc86f7746d3f3c33fc", // Hunting matches
             "56742c284bdc2d98058b456d", // Crickent lighter
             "56742c2e4bdc2d95058b456d", // Zibbo lighter
+            "5939a00786f7742fe8132936", // Golden Zibbo lighter
             "5e2af37686f774755a234b65" // SurvL Survivor Lighter
         };
 
+        // In the order they get burned: paper first, then rags, dry fuel last
         private static readonly string[] FireTinder =
         {
             "5c13cef886f774072e618e82", // Toilet paper
@@ -67,14 +69,21 @@ namespace WinterOutbreak
 
         private void BindBonfireSettings()
         {
-            _bonfiresEnabled = Config.Bind("Bonfires", "Enabled", true, "Place bonfires in winter raids. You need matches or a lighter, and dry fuel, toilet paper or a rag.");
+            _bonfiresEnabled = BindSetting(SurvivalSection, "Bonfires", true,
+                "Place bonfires in winter raids. You need matches or a lighter, and dry fuel, toilet paper or a rag.", 3,
+                oldSection: "Bonfires", oldKey: "Enabled");
 
-            _bonfireKey = Config.Bind("Bonfires", "Place Key", new KeyboardShortcut(KeyCode.K),
-                "Starts placing a bonfire. Left click places it; right click, Escape or this key cancels.");
+            _bonfireKey = BindSetting(SurvivalSection, "Bonfire Key", new KeyboardShortcut(KeyCode.K),
+                "Starts placing a bonfire. Left click places it; right click, Escape or this key cancels.", 4,
+                oldSection: "Bonfires", oldKey: "Place Key");
 
-            _bonfireUsesTinder = Config.Bind("Bonfires", "Uses Tinder", true, "Each bonfire uses up one piece of tinder. Matches and lighters are kept.");
+            _bonfireLimit = BindSetting(SurvivalSection, "Bonfires Per Raid", 6,
+                "How many bonfires you can place in one raid.", 5,
+                true, new AcceptableValueRange<int>(1, 30), "Bonfires", "Max Per Raid");
 
-            _bonfireLimit = Config.Bind("Bonfires", "Max Per Raid", 6, new ConfigDescription("How many bonfires you can place in one raid.", new AcceptableValueRange<int>(1, 30)));
+            _bonfireUsesTinder = BindSetting(SurvivalSection, "Bonfires Use Tinder", true,
+                "Each bonfire uses up one piece of tinder. Matches and lighters are kept.", 6,
+                advanced: true, oldSection: "Bonfires", oldKey: "Uses Tinder");
         }
 
         private void UpdateBonfires(Player player)
@@ -102,7 +111,7 @@ namespace WinterOutbreak
             }
         }
 
-        // The fire list is cleared whenever exposure resets, so placed bonfires are put back on it every second.
+        // The fire list is cleared whenever exposure resets, so placed bonfires are put back on it every second
         private void RegisterBonfires()
         {
             if (_bonfires.Count == 0 || Time.time < _nextBonfireRegister)
@@ -119,12 +128,13 @@ namespace WinterOutbreak
 
         private bool CanStartBonfire(Player player)
         {
-            if (!player.IsYourPlayer || player.HealthController == null || !player.HealthController.IsAlive || player.IsInventoryOpened || Cursor.visible)
+            if (!player.IsYourPlayer || player.HealthController == null || !player.HealthController.IsAlive
+                || player.IsInventoryOpened || Cursor.visible)
             {
                 return false;
             }
 
-            // Bonfires other players built do not count against yours.
+            // Bonfires other players built do not count against yours
             if (_bonfires.Count(bonfire => !bonfire.Remote) >= _bonfireLimit.Value)
             {
                 NotificationManager.DisplayWarningNotification($"You can't place more than {_bonfireLimit.Value} bonfires in a raid.");
@@ -135,8 +145,8 @@ namespace WinterOutbreak
             bool hasTinder = FindInventoryItem(player, FireTinder) != null;
             if (!hasStarter || !hasTinder)
             {
-                string missing = !hasStarter && !hasTinder ? "matches or a lighter, and dry fuel, toilet paper or a rag" :
-                    !hasStarter ? "matches or a lighter" : "dry fuel, toilet paper or a rag";
+                string missing = !hasStarter && !hasTinder ? "matches or a lighter, and dry fuel, toilet paper or a rag"
+                    : !hasStarter ? "matches or a lighter" : "dry fuel, toilet paper or a rag";
                 NotificationManager.DisplayWarningNotification($"To build a bonfire you need {missing}.");
                 return false;
             }
@@ -167,7 +177,8 @@ namespace WinterOutbreak
 
         private void UpdateBonfirePlacing(Player player)
         {
-            if (player != _bonfirePlacer || player.HealthController == null || !player.HealthController.IsAlive || player.IsInventoryOpened)
+            if (player != _bonfirePlacer || player.HealthController == null || !player.HealthController.IsAlive
+                || player.IsInventoryOpened)
             {
                 CancelBonfirePlacing(false);
                 return;
@@ -179,7 +190,7 @@ namespace WinterOutbreak
                 return;
             }
 
-            // Taking a weapon out again (scroll, number keys) ends placing; the first moment is the holster itself.
+            // Taking a weapon out again (scroll, number keys) ends placing
             if (Time.time - _bonfirePlacingStarted > 1.5f && !player.HandsIsEmpty)
             {
                 CancelBonfirePlacing(false);
@@ -193,8 +204,7 @@ namespace WinterOutbreak
                 return;
             }
 
-            // The Customs pile is only 20 cm tall, so on the ground it would vanish under the voxel snow. While aiming,
-            // the preview rides on the snow; the real bonfire goes on the ground and melts its way out.
+            // The Customs pile is only 20 cm tall, so on the ground it would vanish under the voxel snow
             Vector3 shown = spot;
             if (TryGetVoxelSnowDepth(spot, out float snow) && snow > 0f)
             {
@@ -223,11 +233,7 @@ namespace WinterOutbreak
             var bonfire = BonfireVisuals.CreateBonfire(spot, rotation, spot + Vector3.up * BonfireHeatHeight, _bonfireLoopClip);
             _bonfires.Add(bonfire);
             _fires.AddPlaced(bonfire.Heat);
-            CoopSupport.Network?.SendBonfire(new SharedBonfire
-            {
-                Position = spot,
-                Yaw = _bonfireYaw
-            });
+            CoopSupport.Network?.SendBonfire(new SharedBonfire { Position = spot, Yaw = _bonfireYaw });
 
             if (_bonfirePlaceClip != null)
             {
@@ -248,7 +254,8 @@ namespace WinterOutbreak
             _bonfireGhostLook = null;
 
             var player = _bonfirePlacer;
-            if (giveWeaponBack && _bonfireHidWeapon && player != null && player.HealthController != null && player.HealthController.IsAlive && player.HandsIsEmpty)
+            if (giveWeaponBack && _bonfireHidWeapon && player != null && player.HealthController != null
+                && player.HealthController.IsAlive && player.HandsIsEmpty)
             {
                 player.TrySetLastEquippedWeapon();
             }
@@ -283,7 +290,7 @@ namespace WinterOutbreak
             int obstacles = LayersMaskController.TripwireCheckLayerMaskNoPlayer;
             int ground = LayersMaskController.TerrainLowPoly;
 
-            // Aiming at a wall or a ceiling puts the bonfire on the floor in front of it.
+            // Aiming at a wall or a ceiling puts the bonfire on the floor in front of it
             Vector3 probe;
             if (Physics.Raycast(ray, out RaycastHit aim, BonfireReach, obstacles, QueryTriggerInteraction.Ignore))
             {
@@ -294,7 +301,8 @@ namespace WinterOutbreak
                 probe = ray.GetPoint(BonfireReach);
             }
 
-            if (!Physics.Raycast(probe + Vector3.up * 0.4f, Vector3.down, out RaycastHit floor, 3f, ground, QueryTriggerInteraction.Ignore))
+            if (!Physics.Raycast(probe + Vector3.up * 0.4f, Vector3.down, out RaycastHit floor, 3f, ground,
+                QueryTriggerInteraction.Ignore))
             {
                 return false;
             }
@@ -306,10 +314,13 @@ namespace WinterOutbreak
             offset.y = 0f;
             float distance = offset.magnitude;
 
-            fits = distance >= BonfireMinDistance && distance <= BonfireMaxDistance && Mathf.Abs(height) < 1.5f && floor.normal.y >= BonfireLowestNormal
-                   && IsBonfireGroundFlat(spot, ground) && IsBonfireSpaceClear(spot, obstacles | LayersMaskController.PlayerMask)
-                   && !Physics.Linecast(ray.origin, spot + Vector3.up * BonfireHeatHeight, obstacles, QueryTriggerInteraction.Ignore) && !IsUnderWater(spot)
-                   && !IsNearOtherBonfire(spot);
+            fits = distance >= BonfireMinDistance && distance <= BonfireMaxDistance && Mathf.Abs(height) < 1.5f
+                && floor.normal.y >= BonfireLowestNormal
+                && IsBonfireGroundFlat(spot, ground)
+                && IsBonfireSpaceClear(spot, obstacles | LayersMaskController.PlayerMask)
+                && !Physics.Linecast(ray.origin, spot + Vector3.up * BonfireHeatHeight, obstacles, QueryTriggerInteraction.Ignore)
+                && !IsUnderWater(spot)
+                && !IsNearOtherBonfire(spot);
             return true;
         }
 
@@ -319,7 +330,8 @@ namespace WinterOutbreak
             {
                 float angle = i * Mathf.PI / 3f;
                 Vector3 edge = spot + new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle)) * BonfireFootprint;
-                if (!Physics.Raycast(edge + Vector3.up * 0.5f, Vector3.down, out RaycastHit hit, 1f, ground, QueryTriggerInteraction.Ignore))
+                if (!Physics.Raycast(edge + Vector3.up * 0.5f, Vector3.down, out RaycastHit hit, 1f, ground,
+                    QueryTriggerInteraction.Ignore))
                 {
                     return false;
                 }
@@ -333,7 +345,7 @@ namespace WinterOutbreak
             return true;
         }
 
-        // Half a metre of free space around the fire, nothing small on the ground under it, and no low ceiling.
+        // Half a metre of free space around the fire, nothing small on the ground under it, and no low ceiling
         private static bool IsBonfireSpaceClear(Vector3 spot, int obstacles)
         {
             Vector3 bottom = spot + Vector3.up * (0.15f + BonfireClearance);
@@ -343,20 +355,25 @@ namespace WinterOutbreak
                 return false;
             }
 
-            int clutter = LayersMaskController.HighPolyCollider | LayersMaskController.DefaultLayerMask | LayersMaskController.LootLayerMask;
+            int clutter = LayersMaskController.HighPolyCollider | LayersMaskController.DefaultLayerMask
+                | LayersMaskController.LootLayerMask;
             var footprint = new Vector3(BonfireFootprint, 0.07f, BonfireFootprint);
-            if (Physics.CheckBox(spot + Vector3.up * 0.17f, footprint, Quaternion.identity, clutter, QueryTriggerInteraction.Ignore))
+            if (Physics.CheckBox(spot + Vector3.up * 0.17f, footprint, Quaternion.identity, clutter,
+                QueryTriggerInteraction.Ignore))
             {
                 return false;
             }
 
-            return !Physics.Raycast(spot + Vector3.up * 0.2f, Vector3.up, BonfireHeadroom, obstacles, QueryTriggerInteraction.Ignore);
+            return !Physics.Raycast(spot + Vector3.up * 0.2f, Vector3.up, BonfireHeadroom, obstacles,
+                QueryTriggerInteraction.Ignore);
         }
 
         private static bool IsUnderWater(Vector3 spot)
         {
             int water = 1 << LayersMaskController.WaterLayer;
-            return Physics.Raycast(spot + Vector3.up * 1f, Vector3.down, out RaycastHit hit, 1.2f, water, QueryTriggerInteraction.Collide) && hit.point.y > spot.y - 0.05f;
+            return Physics.Raycast(spot + Vector3.up * 1f, Vector3.down, out RaycastHit hit, 1.2f, water,
+                    QueryTriggerInteraction.Collide)
+                && hit.point.y > spot.y - 0.05f;
         }
 
         private bool IsNearOtherBonfire(Vector3 spot)
@@ -414,8 +431,7 @@ namespace WinterOutbreak
             return true;
         }
 
-        // Optional sounds next to the footsteps: sound/bonfire_place.* when placing, sound/bonfire_loop.* as the
-        // crackle. Without the loop file the bonfire borrows a fire sound from the map when it can find one.
+        // Optional sounds next to the footsteps
         private void EnsureBonfireAudio()
         {
             if (_bonfireAudioLoadStarted)

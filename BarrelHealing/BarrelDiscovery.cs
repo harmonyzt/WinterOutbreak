@@ -8,9 +8,10 @@ namespace WinterOutbreak
 {
     internal static class BarrelDiscovery
     {
+        // Two fires closer together than this are the same fire
         private const float SamePlaceTolerance = 0.5f;
 
-        // Reused between scans
+        // Reused between scans, so a scan allocates nothing at all
         private const int MaxColliders = 512;
         private static readonly Collider[] Buffer = new Collider[MaxColliders];
 
@@ -21,7 +22,10 @@ namespace WinterOutbreak
             _warnedSaturated = false;
             Array.Clear(Buffer, 0, Buffer.Length);
         }
-        
+
+        /// <summary>
+        /// One spatial query.
+        /// </summary>
         internal static void ScanNear(Vector3 origin, List<Vector3> lit)
         {
             if (!TryPattern(BarrelSettings.BarrelNamePattern.Value, out Regex healPattern))
@@ -36,7 +40,7 @@ namespace WinterOutbreak
             {
                 _warnedSaturated = true;
                 BarrelSettings.Log.LogWarning(
-                    $"[BarrelHealing] scan buffer full ({MaxColliders}) - a fire could be missed here. "
+                    $"[BarrelHealing] scan buffer full ({MaxColliders}) -- a fire could be missed here. "
                     + "Lower the scan radius if this recurs.");
             }
 
@@ -52,7 +56,7 @@ namespace WinterOutbreak
                     continue;
                 }
 
-                // Some props keep the heat trigger and the visible flames under separate objects.
+                // Some props keep the heat trigger and the visible flames under separate objects
                 var flame = collider.GetComponentInParent<FlameDamageTrigger>();
                 if (flame != null && flame.isActiveAndEnabled)
                 {
@@ -72,7 +76,7 @@ namespace WinterOutbreak
                 return;
             }
 
-            // Lit or cold is decided by whether there is a fire under it, not by the name.
+            // Lit or cold is decided by whether there is a fire under it, not by the name
             var flame = match.GetComponentInChildren<FlameDamageTrigger>();
             var particles = match.GetComponentInChildren<ParticleSystem>(true);
             if ((flame == null || !flame.isActiveAndEnabled) && particles == null)
